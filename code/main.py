@@ -1,11 +1,66 @@
-from flask import Flask
+from flask import Flask, render_template, request
 from sqlitedict import SqliteDict
 
-app = Flask(__name__)
+app = Flask(__name__, static_url_path='/static', static_folder='/data', template_folder='')
 
 codes_table = SqliteDict('/data/main.db', tablename="codes", autocommit=True)
+main_table = SqliteDict('/data/main.db', tablename="main", autocommit=True)
+players_table = SqliteDict('/data/main.db', tablename="players", autocommit=True)
+
+
+if main_table.get('origin') is None:
+    main_table['origin'] = [0, 0]
+
+
+def _init_row(barcode=''):
+    return {
+        'barcode': barcode,
+        'x': 0,
+        'y': 0,
+        'name': None
+    }
+
+
+codes_table["123"] = _init_row("123")
+codes_table["456"] = _init_row("456")
+
 
 @app.route("/")
 def hello_world():
-    return "<p>Hello, World!</p>"
+    return render_template("index.html", title = 'App')
+
+
+@app.route("/api/add", methods=['POST'])
+def add_barcode():
+    barcode = request.json.get('barcode')
+    if not barcode:
+        return 'No barcode provided'
+    row = _init_row()
+    row['barcode'] = barcode
+    codes_table[barcode] = row
+    return row
+
+
+@app.route("/api/modify", methods=['POST'])
+def modify_barcode():
+    barcode = request.json.get('barcode')
+    if not barcode:
+        return 'No barcode provided'
+    x = request.json.get('x')
+    y = request.json.get('y')
+    name = request.json.get('name')
+    row = codes_table.get(barcode)
+    if not row:
+        return 'error'
+    row['x'] = x
+    row['y'] = y
+    if name:
+        row['name'] = name
+    codes_table[barcode] = row
+    return row
+
+
+@app.route("/api/list")
+def list_barcodes():
+    return dict(codes_table)
 
