@@ -1,17 +1,24 @@
 from flask import Flask, render_template, request
 from sqlitedict import SqliteDict
 import os
+import datetime
+import random
+import logging
 
 data_folder = '/data'
 if not os.path.exists(data_folder):
     data_folder = '../data'
 
 app = Flask(__name__, static_url_path='/static', static_folder=data_folder, template_folder='')
+logger = app.logger
 
 codes_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="codes", autocommit=True)
 main_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="main", autocommit=True)
 players_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="players", autocommit=True)
+monster_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="monster", autocommit=True)
 
+monster_table["respawn"] = datetime.datetime.now()
+monster_table["status"] = "dead"
 
 if main_table.get('origin') is None:
     main_table['origin'] = [0, 0]
@@ -63,14 +70,60 @@ def modify_barcode():
     return row
 
 
-@app.route("/api/list")
-def list_barcodes():
-    return dict(codes_table)
+def new_monster_location():
+    monster_table["target"] = random.choice(
+        [code for code in codes_table.keys() if code != monster_table["location"]]
+    )
+    # monster_table["secs_to_location"] += 5
+    monster_table["start_time"] = datetime.datetime.now()
+    monster_table["target_time"] = (
+        datetime.datetime.now() +
+        datetime.timedelta(seconds=monster_table["secs_to_location"])
+    )
+    logger.info("new_monster_location target to %s", monster_table["target"])
 
 
-@app.route("/api/players")
-def list_players():
-    return dict(players_table)
+def respawn_monster():
+    monster_table["status"] = "alive"
+    monster_table["secs_to_location"] = 10
+    monster_table["location"] = random.choice(list(codes_table.keys()))
+    logger.info("respawn_monster to %s", monster_table["location"])
+    
+    new_monster_location()
+
+
+def kill_monster(player):
+    monster_table["status"] = "dead"
+    monster_table["secs_to_location"] = 0
+    monster_table["location"] = None
+    monster_table["target"] = None
+    monster_table["respawn"] = datetime.datetime.now() + datetime.timedelta(seconds=30)
+    monster_table["kills"] = monster_table.get("kills", [])
+    monster_table["kills"].append({
+        "time": datetime.datetime.now(),
+        "player": player["ip_address"]
+    })
+    logger.info("monster killed by %s", player)
+
+
+@app.route("/api/tick")
+def game_tick():
+    if monster_table.get("status", "dead") == "dead":
+        if datetime.datetime.now() > monster_table["respawn"]:
+            respawn_monster()
+    else:
+        if datetime.datetime.now() > monster_table["target_time"]:
+            monster_table["location"] = monster_table["target"]
+            new_monster_location()
+    monster = dict(monster_table)
+    monster["start_time"] = monster["start_time"].isoformat()
+    monster["target_time"] = monster["target_time"].isoformat()
+    monster["respawn"] = monster["respawn"].isoformat()
+    return {
+        "codes": dict(codes_table),
+        "players": dict(players_table),
+        "monster": monster,
+    }
 
 
 @app.route("/api/mark", methods=['POST'])
@@ -84,13 +137,16 @@ def mark_barcodes():
     player = players_table.get(ip_address)
     if not player:
         player = {
-            "history": []
+            "history": [],
+            "ip_address": ip_address,
         }
-    if len(player["history"]) > 0:
-        if player["history"][-1] == barcode:
-            return 'same'
+
     player["history"].append(barcode)
     player["history"] = player["history"][-4:]
     players_table[ip_address] = player
 
+    if barcode == monster_table.get("target"):
+        kill_monster(player)
+
+    logger.info("player visited %s", barcode)
     return player
