@@ -63,10 +63,12 @@ def modify_barcode():
 
 @app.route("/api/list")
 def list_barcodes():
-    return {
-        "codes": dict(codes_table),
-        "players": dict(players_table),
-    }
+    return dict(codes_table)
+
+
+@app.route("/api/players")
+def list_players():
+    return dict(players_table)
 
 
 @app.route("/api/mark")
