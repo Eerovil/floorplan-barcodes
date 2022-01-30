@@ -74,7 +74,7 @@ def new_monster_location():
     monster_table["target"] = random.choice(
         [code for code in codes_table.keys() if code != monster_table["location"]]
     )
-    # monster_table["secs_to_location"] += 5
+    monster_table["secs_to_location"] += 1
     monster_table["start_time"] = datetime.datetime.now()
     monster_table["target_time"] = (
         datetime.datetime.now() +
@@ -85,7 +85,7 @@ def new_monster_location():
 
 def respawn_monster():
     monster_table["status"] = "alive"
-    monster_table["secs_to_location"] = 10
+    monster_table["secs_to_location"] = 4
     monster_table["location"] = random.choice(list(codes_table.keys()))
     logger.info("respawn_monster to %s", monster_table["location"])
     
@@ -98,11 +98,12 @@ def kill_monster(player):
     monster_table["location"] = None
     monster_table["target"] = None
     monster_table["respawn"] = datetime.datetime.now() + datetime.timedelta(seconds=30)
-    monster_table["kills"] = monster_table.get("kills", [])
-    monster_table["kills"].append({
-        "time": datetime.datetime.now(),
+    kills = monster_table.get("kills", []) or []
+    kills.append({
+        "time": datetime.datetime.now().isoformat(),
         "player": player["ip_address"]
     })
+    monster_table["kills"] = kills
     logger.info("monster killed by %s", player)
 
 

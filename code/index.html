@@ -28,13 +28,16 @@
             width: 100%;
             height: 100%;
         }
+        #wrapper {
+            display: flex;
+        }
     </style>
 </head>
 <body>
     <div id="vue-app">
     </div>
     <script type="template/html" id="template">
-        <div>
+        <div id="wrapper">
             <img ref="img" src="/static/floorplan.jpg"></img>
             <svg ref="svg" id="svg-el"></svg>
             <div
@@ -46,6 +49,9 @@
                 :title="point.barcode"
             ></div>
             <div ref="monster" id="monster"></div>
+            <div>
+                <div v-for="kill in monster.kills">Napattu! {{ '{{ (new Date(kill.time)).toLocaleString("fi") }}' }}</div>
+            </div>
         </div>
     </script>
     <script>
