@@ -8,9 +8,9 @@ if not os.path.exists(data_folder):
 
 app = Flask(__name__, static_url_path='/static', static_folder=data_folder, template_folder='')
 
-codes_table = SqliteDict(os.path.join(data_folder, '/main.db'), tablename="codes", autocommit=True)
-main_table = SqliteDict(os.path.join(data_folder, '/main.db'), tablename="main", autocommit=True)
-players_table = SqliteDict(os.path.join(data_folder, '/main.db'), tablename="players", autocommit=True)
+codes_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="codes", autocommit=True)
+main_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="main", autocommit=True)
+players_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="players", autocommit=True)
 
 
 if main_table.get('origin') is None:
