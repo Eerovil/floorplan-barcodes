@@ -86,7 +86,7 @@ def mark_barcodes():
         player = {
             "history": []
         }
-    if len(player["history"] > 0):
+    if len(player["history"]) > 0:
         if player["history"][-1] == barcode:
             return 'same'
     player["history"].append(barcode)
