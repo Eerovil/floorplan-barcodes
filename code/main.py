@@ -21,10 +21,6 @@ def _init_row(barcode=''):
     }
 
 
-codes_table["123"] = _init_row("123")
-codes_table["456"] = _init_row("456")
-
-
 @app.route("/")
 def hello_world():
     return render_template("index.html", title = 'App')
@@ -62,5 +58,27 @@ def modify_barcode():
 
 @app.route("/api/list")
 def list_barcodes():
-    return dict(codes_table)
+    return {
+        "codes": dict(codes_table),
+        "players": dict(players_table),
+    }
 
+
+@app.route("/api/mark")
+def mark_barcodes():
+    ip_address = request.remote_addr
+    barcode = request.json.get("barcode")
+    if not barcode:
+        return 'No barcode provided'
+    player = players_table.get(ip_address)
+    if not player:
+        player = {
+            "history": []
+        }
+    if len(player["history"] > 0):
+        if player["history"][-1] == barcode:
+            return 'same'
+    player["history"].append(barcode)
+    players_table[ip_address] = player
+
+    return player
