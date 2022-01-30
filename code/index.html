@@ -107,7 +107,7 @@
                         });
                 },
                 cleanCode(code) {
-                    return code.replace('/', '').replace(':', '');
+                    return code.replaceAll('/', '').replaceAll(':', '');
                 },
                 dragStart(event, point) {
                     this.dragTarget = point;
