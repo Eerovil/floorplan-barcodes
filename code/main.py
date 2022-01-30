@@ -90,6 +90,7 @@ def mark_barcodes():
         if player["history"][-1] == barcode:
             return 'same'
     player["history"].append(barcode)
+    player["history"] = player["history"][-10:]
     players_table[ip_address] = player
 
     return player
