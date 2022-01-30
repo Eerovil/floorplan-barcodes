@@ -1,4 +1,4 @@
-FROM python:slim
+python:3.9-buster
 
 RUN mkdir -p /code
 RUN mkdir -p /data
