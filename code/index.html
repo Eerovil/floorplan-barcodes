@@ -32,7 +32,7 @@
             <svg ref="svg" id="svg-el"></svg>
             <div
                 v-for="point in points"
-                :id="`point-${point.barcode}`"
+                :id="`point-${cleanCode(point.barcode)}`"
                 class="point"
                 :style="{'top': point.y * imgEl.height, 'left': point.x * imgEl.width, 'width': `${pointSize}px`, 'height': `${pointSize}px`}"
                 @mousedown="dragStart($event, point)"
@@ -56,8 +56,8 @@
             },
             methods: {
                 drawLine(barcode1, barcode2) {
-                    const el1 = document.querySelector(`#point-${barcode1}`);
-                    const el2 = document.querySelector(`#point-${barcode2}`);
+                    const el1 = document.querySelector(`#point-${this.cleanCode(barcode1)}`);
+                    const el2 = document.querySelector(`#point-${this.cleanCode(barcode2)}`);
                     const b1 = el1.getBoundingClientRect();
                     const b2 = el2.getBoundingClientRect();
                     const newLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
@@ -105,6 +105,9 @@
                         .catch(error => {
                             console.log(error);
                         });
+                },
+                cleanCode(code) {
+                    return code.replace('/', '').replace(':', '');
                 },
                 dragStart(event, point) {
                     this.dragTarget = point;
