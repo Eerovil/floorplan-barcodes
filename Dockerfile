@@ -5,7 +5,6 @@ RUN mkdir -p /data
 WORKDIR /code
 COPY ./pip-requirements.txt /code/pip-requirements.txt
 
-RUN pip install --upgrade pip
 RUN pip install -r pip-requirements.txt
 
 COPY ./code /code

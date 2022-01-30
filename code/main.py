@@ -70,6 +70,8 @@ def mark_barcodes():
     barcode = request.json.get("barcode")
     if not barcode:
         return 'No barcode provided'
+    if barcode not in codes_table:
+        return 'Barcode not found'
     player = players_table.get(ip_address)
     if not player:
         player = {
