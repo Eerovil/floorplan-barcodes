@@ -71,7 +71,7 @@ def list_players():
     return dict(players_table)
 
 
-@app.route("/api/mark")
+@app.route("/api/mark", methods=['POST'])
 def mark_barcodes():
     ip_address = request.remote_addr
     barcode = request.json.get("barcode")
