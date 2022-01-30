@@ -1,11 +1,16 @@
 from flask import Flask, render_template, request
 from sqlitedict import SqliteDict
+import os
 
-app = Flask(__name__, static_url_path='/static', static_folder='/data', template_folder='')
+data_folder = '/data'
+if not os.path.exists(data_folder):
+    data_folder = '../data'
 
-codes_table = SqliteDict('/data/main.db', tablename="codes", autocommit=True)
-main_table = SqliteDict('/data/main.db', tablename="main", autocommit=True)
-players_table = SqliteDict('/data/main.db', tablename="players", autocommit=True)
+app = Flask(__name__, static_url_path='/static', static_folder=data_folder, template_folder='')
+
+codes_table = SqliteDict(os.path.join(data_folder, '/main.db'), tablename="codes", autocommit=True)
+main_table = SqliteDict(os.path.join(data_folder, '/main.db'), tablename="main", autocommit=True)
+players_table = SqliteDict(os.path.join(data_folder, '/main.db'), tablename="players", autocommit=True)
 
 
 if main_table.get('origin') is None:
