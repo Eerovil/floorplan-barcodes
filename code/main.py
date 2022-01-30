@@ -36,6 +36,8 @@ def add_barcode():
     barcode = request.json.get('barcode')
     if not barcode:
         return 'No barcode provided'
+    if 'koodi' not in barcode:
+        return 'No koodi provided'
     row = _init_row()
     row['barcode'] = barcode
     codes_table[barcode] = row
