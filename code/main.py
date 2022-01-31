@@ -17,6 +17,8 @@ main_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="main", 
 players_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="players", autocommit=True)
 monster_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="monster", autocommit=True)
 
+monster_table["target_time"] = datetime.datetime.now()
+monster_table["start_time"] = datetime.datetime.now()
 monster_table["respawn"] = datetime.datetime.now()
 monster_table["status"] = "dead"
 
@@ -31,6 +33,20 @@ def _init_row(barcode=''):
         'y': 0,
         'name': None
     }
+
+INITIAL_CODES = [
+    'http://koodi-1',
+    'http://koodi-2',
+    'http://koodi-3',
+    'http://koodi-4',
+    'http://koodi-5',
+    'http://koodi-6',
+    'http://koodi-7',
+    'http://koodi-8',
+]
+for initial_code in INITIAL_CODES:
+    if initial_code not in codes_table:
+        codes_table[initial_code] = _init_row(initial_code)
 
 
 @app.route("/")
