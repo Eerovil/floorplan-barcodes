@@ -162,8 +162,10 @@ def mark_barcodes():
     player["history"] = player["history"][-4:]
     players_table[ip_address] = player
 
+    kill = False
     if barcode == monster_table.get("target"):
         kill_monster(player)
+        kill = True
 
     logger.info("player visited %s", barcode)
-    return player
+    return '1' if kill else '0'
