@@ -26,6 +26,13 @@ if main_table.get('origin') is None:
     main_table['origin'] = [0, 0]
 
 
+# players_table["testplayer"] = {
+#     "history": ["http://koodi-2"],
+#     "ip_address": "ip_address",
+#     "last_seen": datetime.datetime.now(),
+# }
+
+
 def _init_row(barcode=''):
     return {
         'barcode': barcode,
@@ -132,6 +139,15 @@ def game_tick():
         if datetime.datetime.now() > monster_table["target_time"]:
             monster_table["location"] = monster_table["target"]
             new_monster_location()
+    
+    dead_players = []
+    for key, player in players_table.items():
+        if not player.get("last_seen") or (player["last_seen"] < datetime.datetime.now() - datetime.timedelta(minutes=10)):
+            dead_players.append(key)
+
+    for key in dead_players:
+        del players_table[key]
+
     monster = dict(monster_table)
     monster["start_time"] = monster["start_time"].isoformat()
     monster["target_time"] = monster["target_time"].isoformat()
@@ -156,6 +172,7 @@ def mark_barcodes():
         player = {
             "history": [],
             "ip_address": ip_address,
+            "last_seen": datetime.datetime.now(),
         }
 
     player["history"].append(barcode)
