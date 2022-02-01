@@ -93,11 +93,51 @@ def modify_barcode():
     return row
 
 
+def distance(x1, y1, x2, y2):
+    return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
+
+
+def secs_to_monster_location(location, target, secs_to_location_base):
+    return secs_to_location_base + (
+        distance(codes_table[location]["x"], codes_table[location]["y"], codes_table[target]["x"], codes_table[target]["y"])
+    ) * 5
+
+
 def new_monster_location():
-    monster_table["target"] = random.choice(
-        [code for code in codes_table.keys() if code != monster_table["location"]]
+    history = monster_table.get("history", [])
+    if not monster_table.get("location"):
+        monster_table["target"] = random.choice(
+            [code for code in codes_table.keys() if code != monster_table["location"]]
+        )
+    else:
+        locations_with_distance = []
+        for barcode, point in codes_table.items():
+            if barcode in history:
+                continue
+            if barcode != monster_table.get("location"):
+                monster_location = codes_table[monster_table.get("location")]
+                locations_with_distance.append({
+                    "code": barcode,
+                    "distance": distance(point["x"], point["y"], monster_location["x"], monster_location["y"])
+                })
+        sorted_codes = [
+            location["code"]
+            for location in sorted(locations_with_distance, key=lambda x: x["distance"])
+        ]
+        # Pick one of the three closest locations NOT YET VISITED
+        monster_table["target"] = random.choice(
+            sorted_codes[:3]
+        )
+
+    history.append(monster_table["target"])
+    if len(history) >= len(list(codes_table.values())):
+        history = [monster_table["target"]]
+    monster_table["history"] = history
+    monster_table["secs_to_location_base"] += 0.1
+    monster_table["secs_to_location"] = secs_to_monster_location(
+        monster_table["location"], monster_table["target"], monster_table["secs_to_location_base"]
     )
-    monster_table["secs_to_location"] += 1
+    logger.info("secs_to_location: %s", monster_table["secs_to_location"])
     monster_table["start_time"] = datetime.datetime.now()
     monster_table["target_time"] = (
         datetime.datetime.now() +
@@ -108,7 +148,10 @@ def new_monster_location():
 
 def respawn_monster():
     monster_table["status"] = "alive"
-    monster_table["secs_to_location"] = 4
+    monster_table["secs_to_location_base"] = 1
+    monster_table["secs_to_location"] = secs_to_monster_location(
+        monster_table["location"], monster_table["target"], monster_table["secs_to_location_base"]
+    )
     monster_table["location"] = random.choice(list(codes_table.keys()))
     logger.info("respawn_monster to %s", monster_table["location"])
     
