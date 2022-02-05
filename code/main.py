@@ -67,6 +67,8 @@ animals_table['pikachu'] = {
     "level": 0,
 }
 
+FRUIT_TIMEOUT = 60
+
 def _init_row(barcode=''):
     return {
         'barcode': barcode,
@@ -76,6 +78,7 @@ def _init_row(barcode=''):
         'fruit': None,
         'fruit_death': datetime.datetime.now() - datetime.timedelta(days=1),
         "super_fruit": False,
+        'fruit_timeout': datetime.datetime.now() + datetime.timedelta(seconds=FRUIT_TIMEOUT),
     }
 
 
@@ -149,18 +152,24 @@ def distance(x1, y1, x2, y2):
     return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
 
 
-def handle_fruit_collected(point):
+def handle_fruit_collected(point, timeout=False):
     for key, animal in animals_table.items():
         if animal['fruit_slug'] == point['fruit']:
-            logger.info("Fruit collected: %s at %s", point['fruit'], point['barcode'])
-            if animal["fruit"] == 0:
-                animal["start_eating"] = datetime.datetime.now()
-            animal['fruit'] += 1
-            if point['super_fruit']:
-                animal['fruit'] += 4
-            animals_table[animal["slug"]] = animal
+            if timeout:
+                logger.info("Fruit timeout: %s at %s", point['fruit'], point['barcode'])
+            else:
+                logger.info("Fruit collected: %s at %s", point['fruit'], point['barcode'])
+                if animal["fruit"] == 0:
+                    animal["start_eating"] = datetime.datetime.now()
+                animal['fruit'] += 1
+                if point['super_fruit']:
+                    animal['fruit'] += 4
+                animals_table[animal["slug"]] = animal
             point['fruit'] = None
             point['fruit_death'] = datetime.datetime.now()
+            if timeout:
+                # Respawn faster after timeout
+                point['fruit_death'] = datetime.datetime.now() - datetime.timedelta(seconds=60)
             codes_table[point['barcode']] = point
 
             for point in codes_table.values():
@@ -180,6 +189,7 @@ def respawn_fruit(point):
     fruit_slugs = list(set([animal["fruit_slug"] for animal in animals_table.values()]))
     point['fruit'] = random.choice(fruit_slugs)
     point['super_fruit'] = random.randint(0, 100) < 10
+    point['fruit_timeout'] = datetime.datetime.now() + datetime.timedelta(seconds=FRUIT_TIMEOUT)
     logger.info("Fruit respawned at code %s: %s", point['barcode'], point['fruit'])
     codes_table[point['barcode']] = point
 
@@ -199,9 +209,11 @@ def handle_animal_eating(animal):
 @app.route("/api/tick")
 def game_tick():
     for key, point in codes_table.items():
+        if point.get('fruit') and point.get('fruit_timeout') < datetime.datetime.now():
+            handle_fruit_collected(point, timeout=True)
         if point.get('fruit'):
             continue
-        if not point['fruit_death'] or point['fruit_death'] < (datetime.datetime.now() - datetime.timedelta(seconds=60 * 2)):
+        if not point['fruit_death'] or point['fruit_death'] < (datetime.datetime.now() - datetime.timedelta(seconds=90)):
             respawn_fruit(point)
 
     for key, animal in animals_table.items():
@@ -215,8 +227,12 @@ def game_tick():
     for key in dead_players:
         del players_table[key]
 
+    codes = dict(codes_table)
+    for key in codes:
+        codes[key]['close_to_timeout'] = codes[key]['fruit_timeout'] < (datetime.datetime.now() + datetime.timedelta(seconds=15))
+
     return {
-        "codes": dict(codes_table),
+        "codes": codes,
         "players": dict(players_table),
         "animals": dict(animals_table),
     }
