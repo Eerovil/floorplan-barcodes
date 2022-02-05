@@ -141,7 +141,7 @@ def game_tick():
     for key, point in codes_table.items():
         if point.get('fruit'):
             continue
-        if not point['fruit_death'] or point['fruit_death'] < (datetime.datetime.now() - datetime.timedelta(seconds=60)):
+        if not point['fruit_death'] or point['fruit_death'] < (datetime.datetime.now() - datetime.timedelta(seconds=60 * 5)):
             respawn_fruit(point)
 
     for key, animal in animals_table.items():
