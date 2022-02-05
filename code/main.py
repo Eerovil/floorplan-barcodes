@@ -24,27 +24,25 @@ animals_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="anim
 #     "last_seen": datetime.datetime.now(),
 # }
 
-if 'mouse' not in animals_table:
-    animals_table['mouse'] = {
-        "name": "Hiiri",
-        "slug": "mouse",
-        "image": "mouse.png",
-        "fruit_slug": "apple",
-        "fruit": 1,
-        "eating_speed": 30,  # seconds
-        "start_eating": datetime.datetime.now(),
-    }
+animals_table['mouse'] = {
+    "name": "Hiiri",
+    "slug": "mouse",
+    "image": "mouse.png",
+    "fruit_slug": "apple",
+    "fruit": 1,
+    "eating_speed": 40,  # seconds
+    "start_eating": datetime.datetime.now(),
+}
 
-if 'bunny' not in animals_table:
-    animals_table['bunny'] = {
-        "name": "Hiiri",
-        "slug": "bunny",
-        "image": "bunny.png",
-        "fruit_slug": "carrot",
-        "fruit": 1,
-        "eating_speed": 30,  # seconds
-        "start_eating": datetime.datetime.now(),
-    }
+animals_table['bunny'] = {
+    "name": "Hiiri",
+    "slug": "bunny",
+    "image": "bunny.png",
+    "fruit_slug": "carrot",
+    "fruit": 1,
+    "eating_speed": 40,  # seconds
+    "start_eating": datetime.datetime.now(),
+}
 
 def _init_row(barcode=''):
     return {
@@ -154,7 +152,7 @@ def game_tick():
     for key, point in codes_table.items():
         if point.get('fruit'):
             continue
-        if not point['fruit_death'] or point['fruit_death'] < (datetime.datetime.now() - datetime.timedelta(seconds=60 * 5)):
+        if not point['fruit_death'] or point['fruit_death'] < (datetime.datetime.now() - datetime.timedelta(seconds=60 * 3)):
             respawn_fruit(point)
 
     for key, animal in animals_table.items():
