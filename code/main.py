@@ -36,7 +36,7 @@ animals_table['mouse'] = {
     "image": "mouse.png",
     "fruit_slug": "apple",
     "fruit": 1,
-    "eating_speed": 10,  # seconds
+    "eating_speed": 8,  # seconds
     "start_eating": datetime.datetime.now(),
     "experience": 0,
     "level": 0,
@@ -50,6 +50,18 @@ animals_table['bunny'] = {
     "fruit_slug": "carrot",
     "fruit": 1,
     "eating_speed": 10,  # seconds
+    "start_eating": datetime.datetime.now(),
+    "experience": 0,
+    "level": 0,
+}
+
+animals_table['pikachu'] = {
+    "name": "Pupu",
+    "slug": "pikachu",
+    "image": "pikachu.png",
+    "fruit_slug": "watermelon",
+    "fruit": 1,
+    "eating_speed": 15,  # seconds
     "start_eating": datetime.datetime.now(),
     "experience": 0,
     "level": 0,
