@@ -3,7 +3,6 @@
     <title>Vue.js</title>
     <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
-    <script src="https://unpkg.com/fireworks-js@latest/dist/fireworks.js"></script>
 
     <style>
         .point {
@@ -11,13 +10,6 @@
             width: 10px;
             height: 10px;
             background-color: red;
-            border-radius: 50%;
-        }
-        #monster {
-            position: absolute;
-            width: 40px;
-            height: 40px;
-            background-color: blue;
             border-radius: 50%;
         }
         .player {
@@ -40,14 +32,6 @@
         #wrapper {
             display: flex;
         }
-        .fireworks-example {
-            width: 100%;
-            height: 100%;
-            position: absolute;
-            top: 0;
-            left: 0;
-            background-color: #00000085;
-        }
     </style>
 </head>
 <body>
@@ -63,14 +47,10 @@
                 class="point"
                 :style="{'top': yToPx(point.y), 'left': xToPx(point.x), 'width': `${pointSize}px`, 'height': `${pointSize}px`}"
                 @mousedown="dragStart($event, point)"
+                @click="markPoint(point)"
                 :title="point.barcode"
             ></div>
-            <div ref="monster" id="monster"></div>
-            <div v-for="(player, key) in players" :id="`player-${key}`" class="player"></div>
-            <div>
-                <div v-for="kill in monster.kills">Napattu! {{ '{{ (new Date(kill.time)).toLocaleString("fi") }}' }}</div>
-            </div>
-            <div ref="fireworks" class="fireworks-example"></div>
+            <div v-for="(player, key) in players" :id="`player-${cleanCode(key)}`" class="player"></div>
         </div>
     </script>
     <script>
@@ -80,18 +60,15 @@
             data: () => ({
                 points: [],
                 players: {},
-                monster: {},
+                animals: {},
                 dragTarget: null,
                 pointSize: 25,
-                monsterWidth: 40,
-                monsterHeight: 40,
 
                 playerWidth: 40,
 
                 fireworks: null,
             }),
             mounted() {
-                this.fireworksInit();
                 this.fetchTick();
             },
             methods: {
@@ -115,37 +92,14 @@
                     newLine.setAttribute('style', 'stroke: black; stroke-width: 2;');
                     this.$refs.svg.append(newLine);
                 },
-                handleMonster(newMonster) {
-                    const monsterEl = this.$refs.monster;
-                    if (newMonster.status == "dead") {
-                        this.showFireworks();
-                        monsterEl.style.display = "none";
-                    } else if (newMonster.status != this.monster.status || newMonster.location != this.monster.location) {
-                        this.hideFireworks();
-                        const newLocation = this.points[newMonster.location];
-                        const newTarget = this.points[newMonster.target];
-                        monsterEl.style.display = "block";
-                        monsterEl.style.transition = ''
-                        monsterEl.style.top = this.yToPx(newLocation.y, (this.pointSize / 2) - (this.monsterHeight / 2));
-                        monsterEl.style.left = this.xToPx(newLocation.x, (this.pointSize / 2)-(this.monsterWidth / 2));
-                        monsterEl.style.transition = `all ${newMonster.secs_to_location}s linear`
-                        monsterEl.style.top = this.yToPx(newTarget.y, (this.pointSize / 2)-(this.monsterHeight / 2));
-                        monsterEl.style.left = this.xToPx(newTarget.x, (this.pointSize / 2)-(this.monsterWidth / 2));
-                    }
-                    this.monster = newMonster;
-                    this.monster.start_time = new Date(this.monster.start_time || null);
-                    this.monster.target_time = new Date(this.monster.target_time || null);
-                    this.monster.respawn = new Date(this.monster.respawn || null);
-                },
                 fetchTick() {
                     axios.get('/api/tick')
                         .then(response => {
                             console.log(response.data);
                             this.players = response.data.players;
                             this.points = response.data.codes;
-                            this.handleMonster(response.data.monster);
+                            this.animals = response.data.animals;
                             this.handlePlayers();
-                            console.log(this.monster.target, this.monster.target_time)
                             setTimeout(this.fetchTick
                             , 500);
                         })
@@ -153,8 +107,11 @@
                             console.log(error);
                         });
                 },
+                markPoint(point) {
+                    axios.post('/api/mark', {barcode: point.barcode})
+                },
                 cleanCode(code) {
-                    return code.replaceAll('/', '').replaceAll(':', '');
+                    return code.replaceAll('/', '').replaceAll(':', '').replaceAll('.', '');
                 },
                 dragStart(event, point) {
                     this.dragTarget = point;
@@ -188,7 +145,7 @@
                     this.$nextTick(() => {
                         for (const key in this.players) {
                             const player = this.players[key];
-                            const playerEl = document.querySelector(`#player-${key}`);
+                            const playerEl = document.querySelector(`#player-${this.cleanCode(key)}`);
                             if (player.history.length == 0) {
                                 playerEl.style.display = "none";
                                 continue
@@ -199,47 +156,6 @@
                             playerEl.style.left = this.xToPx(point.x, (this.pointSize / 2) - (this.playerWidth / 2));
                         }
                     })
-                },
-                fireworksInit() {
-                    const container = document.querySelector('.fireworks-example');
-                    this.fireworks = new Fireworks(container, {
-                        rocketsPoint: 50,
-                        hue: { min: 0, max: 360 },
-                        delay: { min: 15, max: 30 },
-                        speed: 2,
-                        acceleration: 1.05,
-                        friction: 0.95,
-                        gravity: 1.5,
-                        particles: 90,
-                        trace: 3,
-                        explosion: 6,
-                        autoresize: true,
-                        brightness: { 
-                            min: 50, 
-                            max: 80,
-                            decay: { min: 0.015, max: 0.03 }
-                        },
-                        mouse: { 
-                            click: false, 
-                            move: false, 
-                            max: 3 
-                        },
-                        boundaries: { 
-                            x: 50, 
-                            y: 50, 
-                            width: container.clientWidth, 
-                            height: container.clientHeight 
-                        },
-                    });
-                },
-                showFireworks() {
-                    this.$refs.fireworks.style.display = "block";
-                    this.fireworks.start();
-                },
-                hideFireworks() {
-                    this.$refs.fireworks.style.display = "none";
-                    this.fireworks.stop();
-
                 },
             },
             computed: {

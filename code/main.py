@@ -1,3 +1,4 @@
+from ctypes import pointer
 from flask import Flask, render_template, request
 from sqlitedict import SqliteDict
 import os
@@ -15,16 +16,7 @@ logger = app.logger
 codes_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="codes", autocommit=True)
 main_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="main", autocommit=True)
 players_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="players", autocommit=True)
-monster_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="monster", autocommit=True)
-
-monster_table["target_time"] = datetime.datetime.now()
-monster_table["start_time"] = datetime.datetime.now()
-monster_table["respawn"] = datetime.datetime.now()
-monster_table["status"] = "dead"
-
-if main_table.get('origin') is None:
-    main_table['origin'] = [0, 0]
-
+animals_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="animals", autocommit=True)
 
 # players_table["testplayer"] = {
 #     "history": ["http://koodi-2"],
@@ -32,14 +24,37 @@ if main_table.get('origin') is None:
 #     "last_seen": datetime.datetime.now(),
 # }
 
+if True or 'bunny' not in animals_table:
+    animals_table['bunny'] = {
+        "name": "Pupu",
+        "slug": "bunny",
+        "image": "bunny.png",
+        "fruit_slug": "apple",
+        "fruit": 5,
+        "eating_speed": 10,  # seconds
+        "start_eating": datetime.datetime.now(),
+    }
+
 
 def _init_row(barcode=''):
     return {
         'barcode': barcode,
         'x': 0,
         'y': 0,
-        'name': None
+        'name': None,
+        'fruit': None,
+        'fruit_death': datetime.datetime.now(),
     }
+
+
+for orig_key, point in codes_table.items():
+    initial_row = _init_row()
+    for key in initial_row.keys():
+        if key not in point:
+            point[key] = initial_row[key]
+    codes_table[orig_key] = point
+    logger.info("Initializing code %s: %s", orig_key, point.keys())
+
 
 INITIAL_CODES = [
     'http://koodi-1',
@@ -97,91 +112,46 @@ def distance(x1, y1, x2, y2):
     return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
 
 
-def secs_to_monster_location(location, target, secs_to_location_base):
-    return secs_to_location_base + (
-        distance(codes_table[location]["x"], codes_table[location]["y"], codes_table[target]["x"], codes_table[target]["y"])
-    ) * 5
-
-
-def new_monster_location():
-    history = monster_table.get("history", [])
-    if not monster_table.get("location"):
-        monster_table["target"] = random.choice(
-            [code for code in codes_table.keys() if code != monster_table["location"]]
-        )
+def handle_fruit_collected(point):
+    for key, animal in animals_table.items():
+        if animal['fruit_slug'] == point['fruit']:
+            logger.info("Fruit collected: %s at %s", point['fruit'], point['barcode'])
+            if animal["fruit"] == 0:
+                animal["start_eating"] = datetime.datetime.now()
+            animal['fruit'] += 1
+            animals_table[animal["slug"]] = animal
+            point['fruit'] = None
+            point['fruit_death'] = datetime.datetime.now()
+            codes_table[point['barcode']] = point
+            break
     else:
-        locations_with_distance = []
-        for barcode, point in codes_table.items():
-            if barcode in history:
-                continue
-            if barcode != monster_table.get("location"):
-                monster_location = codes_table[monster_table.get("location")]
-                locations_with_distance.append({
-                    "code": barcode,
-                    "distance": distance(point["x"], point["y"], monster_location["x"], monster_location["y"])
-                })
-        sorted_codes = [
-            location["code"]
-            for location in sorted(locations_with_distance, key=lambda x: x["distance"])
-        ]
-        # Pick one of the three closest locations NOT YET VISITED
-        monster_table["target"] = random.choice(
-            sorted_codes[:3]
-        )
+        logger.warning("Fruit %s not found in animals table", point['fruit'])
 
-    history.append(monster_table["target"])
-    if len(history) >= len(list(codes_table.values())):
-        history = [monster_table["target"]]
-    monster_table["history"] = history
-    monster_table["secs_to_location_base"] += 0.1
-    monster_table["secs_to_location"] = secs_to_monster_location(
-        monster_table["location"], monster_table["target"], monster_table["secs_to_location_base"]
-    )
-    logger.info("secs_to_location: %s", monster_table["secs_to_location"])
-    monster_table["start_time"] = datetime.datetime.now()
-    monster_table["target_time"] = (
-        datetime.datetime.now() +
-        datetime.timedelta(seconds=monster_table["secs_to_location"])
-    )
-    logger.info("new_monster_location target to %s", monster_table["target"])
-
-
-def respawn_monster():
-    monster_table["status"] = "alive"
-    monster_table["secs_to_location_base"] = 1
-    monster_table["secs_to_location"] = secs_to_monster_location(
-        monster_table["location"], monster_table["target"], monster_table["secs_to_location_base"]
-    )
-    monster_table["location"] = random.choice(list(codes_table.keys()))
-    logger.info("respawn_monster to %s", monster_table["location"])
-    
-    new_monster_location()
-
-
-def kill_monster(player):
-    monster_table["status"] = "dead"
-    monster_table["secs_to_location"] = 0
-    monster_table["location"] = None
-    monster_table["target"] = None
-    monster_table["respawn"] = datetime.datetime.now() + datetime.timedelta(seconds=30)
-    kills = monster_table.get("kills", []) or []
-    kills.append({
-        "time": datetime.datetime.now().isoformat(),
-        "player": player["ip_address"]
-    })
-    monster_table["kills"] = kills
-    logger.info("monster killed by %s", player)
+def respawn_fruit(point):
+    fruit_slugs = list(set([animal["fruit_slug"] for animal in animals_table.values()]))
+    point['fruit'] = random.choice(fruit_slugs)
+    logger.info("Fruit respawned at code %s: %s", point['barcode'], point['fruit'])
+    codes_table[point['barcode']] = point
 
 
 @app.route("/api/tick")
 def game_tick():
-    if monster_table.get("status", "dead") == "dead":
-        if datetime.datetime.now() > monster_table["respawn"]:
-            respawn_monster()
-    else:
-        if datetime.datetime.now() > monster_table["target_time"]:
-            monster_table["location"] = monster_table["target"]
-            new_monster_location()
+    for key, point in codes_table.items():
+        if point.get('fruit'):
+            continue
+        if not point['fruit_death'] or point['fruit_death'] < (datetime.datetime.now() - datetime.timedelta(seconds=60)):
+            respawn_fruit(point)
+
+    for key, animal in animals_table.items():
+        if not animal['fruit'] or animal['fruit'] < 1:
+            animal['fruit'] = 0
+            continue
+        if animal['start_eating'] < (datetime.datetime.now() - datetime.timedelta(seconds=animal['eating_speed'])):
+            animal['fruit'] = animal['fruit'] - 1
+            animal['start_eating'] = datetime.datetime.now()
+            logger.info("%s ate a %s: %s left", animal['name'], animal['fruit_slug'], animal["fruit"])
+        animals_table[animal["slug"]] = animal
+
     
     dead_players = []
     for key, player in players_table.items():
@@ -191,14 +161,10 @@ def game_tick():
     for key in dead_players:
         del players_table[key]
 
-    monster = dict(monster_table)
-    monster["start_time"] = monster["start_time"].isoformat()
-    monster["target_time"] = monster["target_time"].isoformat()
-    monster["respawn"] = monster["respawn"].isoformat()
     return {
         "codes": dict(codes_table),
         "players": dict(players_table),
-        "monster": monster,
+        "animals": dict(animals_table),
     }
 
 
@@ -222,10 +188,11 @@ def mark_barcodes():
     player["history"] = player["history"][-4:]
     players_table[ip_address] = player
 
-    kill = False
-    if barcode == monster_table.get("target"):
-        kill_monster(player)
-        kill = True
+    point = codes_table[barcode]
+    got_one = False
+    if point['fruit']:
+        handle_fruit_collected(point)
+        got_one = True
 
     logger.info("player visited %s", barcode)
-    return '1' if kill else '0'
+    return '1' if got_one else '0'
