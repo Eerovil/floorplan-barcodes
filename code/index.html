@@ -16,6 +16,12 @@
             margin-left: -8px;
             margin-top: -21px;
         }
+        .point .super-fruit {
+            width: 100px !important;
+            height: auto;
+            margin-left: -38px;
+            margin-top: -62px;
+        }
         .player {
             position: absolute;
             width: 40px;
@@ -92,7 +98,7 @@
                 @click="markPoint(point)"
                 :title="point.barcode"
             >
-                <img v-if="point.fruit" :src="`/static/${point.fruit}.png`" class="fruit">
+                <img v-if="point.fruit" :src="`/static/${point.fruit}.png`" class="fruit" :class="{'super-fruit': point.super_fruit}">
             </div>
             <div v-for="(player, key) in players" :id="`player-${cleanCode(key)}`" class="player"></div>
             <div id="animals">

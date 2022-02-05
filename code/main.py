@@ -75,6 +75,7 @@ def _init_row(barcode=''):
         'name': None,
         'fruit': None,
         'fruit_death': datetime.datetime.now() - datetime.timedelta(days=1),
+        "super_fruit": False,
     }
 
 
@@ -155,6 +156,8 @@ def handle_fruit_collected(point):
             if animal["fruit"] == 0:
                 animal["start_eating"] = datetime.datetime.now()
             animal['fruit'] += 1
+            if point['super_fruit']:
+                animal['fruit'] += 4
             animals_table[animal["slug"]] = animal
             point['fruit'] = None
             point['fruit_death'] = datetime.datetime.now()
@@ -176,6 +179,7 @@ def handle_fruit_collected(point):
 def respawn_fruit(point):
     fruit_slugs = list(set([animal["fruit_slug"] for animal in animals_table.values()]))
     point['fruit'] = random.choice(fruit_slugs)
+    point['super_fruit'] = random.randint(0, 100) < 10
     logger.info("Fruit respawned at code %s: %s", point['barcode'], point['fruit'])
     codes_table[point['barcode']] = point
 
