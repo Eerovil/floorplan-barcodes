@@ -20,7 +20,6 @@
             position: absolute;
             width: 40px;
             height: 40px;
-            background-color: green;
             border-radius: 50%;
         }
         img {
@@ -43,17 +42,35 @@
         }
         #animals .fruit {
             width: 40px;
-            height: auto
+        }
+        #animals .animal-wrapper {
+            display: flex;
+            align-items: flex-end;
         }
         #animals .animal {
+            display: flex;
             width: 80px;
+            height: auto;
+            flex-direction: column;
+        }
+        #animals .animal-img {
+            width: 100%;
             height: auto
         }
-        #animals .mouse .animal {
+        #animals .mouse .animal-img {
             transform: scaleX(-1);
         }
-        #animals .bunny .animal {
+        #animals .bunny .animal-img {
             transform: scaleX(-1);
+        }
+        #animals .level-bar {
+            width: 100%;
+            background-color: #fafafa;
+        }
+        #animals .level-progress {
+            width: 10%;
+            height: 5px;
+            background-color: green;
         }
     </style>
 </head>
@@ -77,12 +94,16 @@
             </div>
             <div v-for="(player, key) in players" :id="`player-${cleanCode(key)}`" class="player"></div>
             <div id="animals">
-                <div v-for="(animal, key) in animals" :id="`animal-${cleanCode(key)}`">
-                    <span class="animal" :class="{[animal.slug]: true}">
-                        <img v-if="animal.fruit" :src="`/static/${animal.slug}_eating.gif`" class="animal">
-                        <img v-else :src="`/static/${animal.slug}_waiting.png`" class="animal">
+                <div v-for="(animal, key) in animals" :id="`animal-${cleanCode(key)}`" class="animal-wrapper">
+                    <span class="animal" :class="{[animal.slug]: true}" :style="{'width': `${80 + animal.level*20}px`}">
+                        <img v-if="animal.fruit" :src="`/static/${animal.slug}_eating.gif`" class="animal-img">
+                        <img v-else :src="`/static/${animal.slug}_waiting.png`" class="animal-img">
+                        <div class="level-bar">
+                            <div class="level-progress" :style="{width: `${(animal.experience - (animal.level * 5)) * 20 }%`}"></div>
+                        </div>
                     </span>
                     <img class="fruit" v-for="index in animal.fruit" :key="index" :src="`/static/${animal.fruit_slug}.png`">
+
                 </div>
             </div>
         </div>
@@ -134,11 +155,12 @@
                             this.points = response.data.codes;
                             this.animals = response.data.animals;
                             this.handlePlayers();
-                            setTimeout(this.fetchTick
-                            , 500);
                         })
                         .catch(error => {
                             console.log(error);
+                        })
+                        .finally(() => {
+                            setTimeout(this.fetchTick, 500);
                         });
                 },
                 markPoint(point) {

@@ -24,25 +24,43 @@ animals_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="anim
 #     "last_seen": datetime.datetime.now(),
 # }
 
-animals_table['mouse'] = {
-    "name": "Hiiri",
-    "slug": "mouse",
-    "image": "mouse.png",
-    "fruit_slug": "apple",
-    "fruit": 1,
-    "eating_speed": 40,  # seconds
-    "start_eating": datetime.datetime.now(),
-}
+init_tables = False
+if animals_table.get('mouse', {}).get('experience', None) is None:
+    init_tables = True
 
-animals_table['bunny'] = {
-    "name": "Hiiri",
-    "slug": "bunny",
-    "image": "bunny.png",
-    "fruit_slug": "carrot",
-    "fruit": 1,
-    "eating_speed": 40,  # seconds
-    "start_eating": datetime.datetime.now(),
-}
+if 'mouse' not in animals_table or init_tables:
+    animals_table['mouse'] = {
+        "name": "Hiiri",
+        "slug": "mouse",
+        "image": "mouse.png",
+        "fruit_slug": "apple",
+        "fruit": 1,
+        "eating_speed": 40,  # seconds
+        "start_eating": datetime.datetime.now(),
+        "experience": 0,
+        "level": 0,
+    }
+
+if 'bunny' not in animals_table or init_tables:
+    animals_table['bunny'] = {
+        "name": "Pupu",
+        "slug": "bunny",
+        "image": "bunny.png",
+        "fruit_slug": "carrot",
+        "fruit": 1,
+        "eating_speed": 40,  # seconds
+        "start_eating": datetime.datetime.now(),
+        "experience": 0,
+        "level": 0,
+    }
+
+mouse = animals_table["mouse"]
+mouse["eating_speed"] = 10
+animals_table["mouse"] = mouse
+
+bunny = animals_table["bunny"]
+bunny["eating_speed"] = 10
+animals_table["bunny"] = bunny
 
 def _init_row(barcode=''):
     return {
@@ -147,6 +165,18 @@ def respawn_fruit(point):
     codes_table[point['barcode']] = point
 
 
+def handle_animal_eating(animal):
+    if not animal['fruit'] or animal['fruit'] < 1:
+        animal['fruit'] = 0
+    elif animal['start_eating'] < (datetime.datetime.now() - datetime.timedelta(seconds=animal['eating_speed'])):
+        animal['fruit'] = animal['fruit'] - 1
+        animal['start_eating'] = datetime.datetime.now()
+        logger.info("%s ate a %s: %s left", animal['name'], animal['fruit_slug'], animal["fruit"])
+        animal["experience"] += 1
+    animal["level"] = int(animal["experience"] / 5)
+    animals_table[animal["slug"]] = animal
+
+
 @app.route("/api/tick")
 def game_tick():
     for key, point in codes_table.items():
@@ -156,16 +186,8 @@ def game_tick():
             respawn_fruit(point)
 
     for key, animal in animals_table.items():
-        if not animal['fruit'] or animal['fruit'] < 1:
-            animal['fruit'] = 0
-            continue
-        if animal['start_eating'] < (datetime.datetime.now() - datetime.timedelta(seconds=animal['eating_speed'])):
-            animal['fruit'] = animal['fruit'] - 1
-            animal['start_eating'] = datetime.datetime.now()
-            logger.info("%s ate a %s: %s left", animal['name'], animal['fruit_slug'], animal["fruit"])
-        animals_table[animal["slug"]] = animal
+        handle_animal_eating(animal)
 
-    
     dead_players = []
     for key, player in players_table.items():
         if not player.get("last_seen") or (player["last_seen"] < datetime.datetime.now() - datetime.timedelta(minutes=10)):
