@@ -12,6 +12,12 @@
             background-color: red;
             border-radius: 50%;
         }
+        .point .fruit {
+            width: 40px;
+            height: auto;
+            margin-left: -8px;
+            margin-top: -21px;
+        }
         .player {
             position: absolute;
             width: 40px;
@@ -23,6 +29,7 @@
             height: 100%;
         }
         #svg-el {
+            display: none;
             position: absolute;
             top: 0;
             left: 0;
@@ -31,6 +38,21 @@
         }
         #wrapper {
             display: flex;
+        }
+        #animals {
+            width: 100%;
+            background-color: white;
+        }
+        #animals .fruit {
+            width: 40px;
+            height: auto
+        }
+        #animals .animal {
+            width: 80px;
+            height: auto
+        }
+        #animals .mouse .animal {
+            transform: scaleX(-1);
         }
     </style>
 </head>
@@ -49,8 +71,19 @@
                 @mousedown="dragStart($event, point)"
                 @click="markPoint(point)"
                 :title="point.barcode"
-            ></div>
+            >
+                <img v-if="point.fruit" :src="`/static/${point.fruit}.png`" class="fruit">
+            </div>
             <div v-for="(player, key) in players" :id="`player-${cleanCode(key)}`" class="player"></div>
+            <div id="animals">
+                <div v-for="(animal, key) in animals" :id="`animal-${cleanCode(key)}`">
+                    <span class="animal" :class="{[animal.slug]: true}">
+                        <img v-if="animal.fruit" :src="`/static/${animal.slug}_eating.gif`" class="animal">
+                        <img v-else :src="`/static/${animal.slug}_waiting.png`" class="animal">
+                    </span>
+                    <img class="fruit" v-for="index in animal.fruit" :key="index" :src="`/static/${animal.fruit_slug}.png`">
+                </div>
+            </div>
         </div>
     </script>
     <script>

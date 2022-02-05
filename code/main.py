@@ -24,17 +24,19 @@ animals_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="anim
 #     "last_seen": datetime.datetime.now(),
 # }
 
-if True or 'bunny' not in animals_table:
-    animals_table['bunny'] = {
-        "name": "Pupu",
-        "slug": "bunny",
-        "image": "bunny.png",
+if True or 'mouse' not in animals_table:
+    animals_table['mouse'] = {
+        "name": "Hiiri",
+        "slug": "mouse",
+        "image": "mouse.png",
         "fruit_slug": "apple",
         "fruit": 5,
-        "eating_speed": 10,  # seconds
+        "eating_speed": 15,  # seconds
         "start_eating": datetime.datetime.now(),
     }
 
+if 'bunny' in animals_table:
+    del animals_table['bunny']
 
 def _init_row(barcode=''):
     return {
