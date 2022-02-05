@@ -31,12 +31,20 @@ if 'mouse' not in animals_table:
         "image": "mouse.png",
         "fruit_slug": "apple",
         "fruit": 1,
-        "eating_speed": 15,  # seconds
+        "eating_speed": 30,  # seconds
         "start_eating": datetime.datetime.now(),
     }
 
-if 'bunny' in animals_table:
-    del animals_table['bunny']
+if 'bunny' not in animals_table:
+    animals_table['bunny'] = {
+        "name": "Hiiri",
+        "slug": "bunny",
+        "image": "bunny.png",
+        "fruit_slug": "carrot",
+        "fruit": 1,
+        "eating_speed": 30,  # seconds
+        "start_eating": datetime.datetime.now(),
+    }
 
 def _init_row(barcode=''):
     return {
@@ -45,7 +53,7 @@ def _init_row(barcode=''):
         'y': 0,
         'name': None,
         'fruit': None,
-        'fruit_death': datetime.datetime.now(),
+        'fruit_death': datetime.datetime.now() - datetime.timedelta(days=1),
     }
 
 
@@ -71,6 +79,11 @@ INITIAL_CODES = [
 for initial_code in INITIAL_CODES:
     if initial_code not in codes_table:
         codes_table[initial_code] = _init_row(initial_code)
+
+
+for key, point in codes_table.items():
+    point['fruit_death'] = datetime.datetime.now() - datetime.timedelta(days=1)
+    codes_table[key] = point
 
 
 @app.route("/")
