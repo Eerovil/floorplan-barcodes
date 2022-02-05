@@ -1,3 +1,4 @@
+import code
 from ctypes import pointer
 from flask import Flask, render_template, request
 from sqlitedict import SqliteDict
@@ -28,39 +29,31 @@ init_tables = False
 if animals_table.get('mouse', {}).get('experience', None) is None:
     init_tables = True
 
-if 'mouse' not in animals_table or init_tables:
-    animals_table['mouse'] = {
-        "name": "Hiiri",
-        "slug": "mouse",
-        "image": "mouse.png",
-        "fruit_slug": "apple",
-        "fruit": 1,
-        "eating_speed": 40,  # seconds
-        "start_eating": datetime.datetime.now(),
-        "experience": 0,
-        "level": 0,
-    }
+# if 'mouse' not in animals_table or init_tables:
+animals_table['mouse'] = {
+    "name": "Hiiri",
+    "slug": "mouse",
+    "image": "mouse.png",
+    "fruit_slug": "apple",
+    "fruit": 1,
+    "eating_speed": 10,  # seconds
+    "start_eating": datetime.datetime.now(),
+    "experience": 0,
+    "level": 0,
+}
 
-if 'bunny' not in animals_table or init_tables:
-    animals_table['bunny'] = {
-        "name": "Pupu",
-        "slug": "bunny",
-        "image": "bunny.png",
-        "fruit_slug": "carrot",
-        "fruit": 1,
-        "eating_speed": 40,  # seconds
-        "start_eating": datetime.datetime.now(),
-        "experience": 0,
-        "level": 0,
-    }
-
-mouse = animals_table["mouse"]
-mouse["eating_speed"] = 10
-animals_table["mouse"] = mouse
-
-bunny = animals_table["bunny"]
-bunny["eating_speed"] = 10
-animals_table["bunny"] = bunny
+# if 'bunny' not in animals_table or init_tables:
+animals_table['bunny'] = {
+    "name": "Pupu",
+    "slug": "bunny",
+    "image": "bunny.png",
+    "fruit_slug": "carrot",
+    "fruit": 1,
+    "eating_speed": 10,  # seconds
+    "start_eating": datetime.datetime.now(),
+    "experience": 0,
+    "level": 0,
+}
 
 def _init_row(barcode=''):
     return {
@@ -154,9 +147,19 @@ def handle_fruit_collected(point):
             point['fruit'] = None
             point['fruit_death'] = datetime.datetime.now()
             codes_table[point['barcode']] = point
+
+            for point in codes_table.values():
+                if point['fruit']:
+                    break
+            else:
+                logger.info("All fruits collected")
+                point = random.choice(list(codes_table.values()))
+                respawn_fruit(point)
             break
     else:
         logger.warning("Fruit %s not found in animals table", point['fruit'])
+        point['fruit'] = None
+        codes_table[point['barcode']] = point
 
 def respawn_fruit(point):
     fruit_slugs = list(set([animal["fruit_slug"] for animal in animals_table.values()]))

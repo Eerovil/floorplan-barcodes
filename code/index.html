@@ -184,7 +184,6 @@
                     axios.post('/api/modify', {barcode: target.barcode, x: target.x, y: target.y})
                         .then(response => {
                             console.log(response.data);
-                            this.fetchPoints();
                         })
                         .catch(error => {
                             console.log(error);
