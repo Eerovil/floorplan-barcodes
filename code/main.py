@@ -113,6 +113,10 @@ INITIAL_CODES = [
     'http://koodi-6',
     'http://koodi-7',
     'http://koodi-8',
+    'http://koodi-9',
+    'http://koodi-10',
+    'http://koodi-11',
+    'http://koodi-12',
 ]
 for initial_code in INITIAL_CODES:
     if initial_code not in codes_table:
