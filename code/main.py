@@ -281,8 +281,6 @@ def mark_barcodes():
     players_table[ip_address] = player
 
     point = codes_table[barcode]
-    if point.fruit:
-        handle_fruit_collected(point)
 
     logger.info("player visited %s", barcode)
     ret = 'Ruokaa ei löytynyt'
@@ -296,5 +294,8 @@ def mark_barcodes():
             ret += 'omenan!'
         elif point.fruit == 'carrot':
             ret += 'porkkanan!'
+
+    if point.fruit:
+        handle_fruit_collected(point)
 
     return ret
