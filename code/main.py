@@ -306,9 +306,12 @@ def handle_animal_eating(animal):
     animal.level = int(animal.experience / 5)
     if animal.level >= 3 and animal.evolution:
         animal.active = False
+        fruit_overflow = animal.fruit
+        animal.fruit = 0
         animals_table[animal.slug] = animal
         animal = animals_table[animal.evolution]
         animal.active = True
+        animal.fruit = fruit_overflow
     animals_table[animal.slug] = animal
 
 
