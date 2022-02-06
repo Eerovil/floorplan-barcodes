@@ -281,10 +281,20 @@ def mark_barcodes():
     players_table[ip_address] = player
 
     point = codes_table[barcode]
-    got_one = False
     if point.fruit:
         handle_fruit_collected(point)
-        got_one = True
 
     logger.info("player visited %s", barcode)
-    return '1' if got_one else '0'
+    ret = 'Ruokaa ei löytynyt'
+    if point.fruit:
+        ret = 'Hyvä, löysit '
+        if point.super_fruit:
+            ret += 'ison '
+        if point.fruit == 'watermelon':
+            ret += 'vesimelonin!'
+        elif point.fruit == 'apple':
+            ret += 'omenan!'
+        elif point.fruit == 'carrot':
+            ret += 'porkkanan!'
+
+    return ret
