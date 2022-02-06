@@ -412,6 +412,7 @@ def handle_animal_eating(animal):
         animal.active = False
         fruit_overflow = animal.fruit
         animal.fruit = 0
+        animal.spawns = False
         animals_table[animal.slug] = animal
         animal = animals_table[animal.evolution]
         animal.active = True
