@@ -52,42 +52,42 @@ class Point(BaseModel):
 
 
 # if 'mouse' not in animals_table or init_tables:
-animals_table['mouse'] = Animal(**{
-    "name": "Hiiri",
-    "slug": "mouse",
-    "image": "mouse.png",
-    "fruit_slug": "apple",
-    "fruit": 1,
-    "eating_speed": 8,  # seconds
-    "start_eating": datetime.datetime.now(),
-    "experience": 0,
-    "level": 0,
-})
+# animals_table['mouse'] = Animal(**{
+#     "name": "Hiiri",
+#     "slug": "mouse",
+#     "image": "mouse.png",
+#     "fruit_slug": "apple",
+#     "fruit": 1,
+#     "eating_speed": 8,  # seconds
+#     "start_eating": datetime.datetime.now(),
+#     "experience": 0,
+#     "level": 0,
+# })
 
-# if 'bunny' not in animals_table or init_tables:
-animals_table['bunny'] = Animal(**{
-    "name": "Pupu",
-    "slug": "bunny",
-    "image": "bunny.png",
-    "fruit_slug": "carrot",
-    "fruit": 1,
-    "eating_speed": 10,  # seconds
-    "start_eating": datetime.datetime.now(),
-    "experience": 0,
-    "level": 0,
-})
+# # if 'bunny' not in animals_table or init_tables:
+# animals_table['bunny'] = Animal(**{
+#     "name": "Pupu",
+#     "slug": "bunny",
+#     "image": "bunny.png",
+#     "fruit_slug": "carrot",
+#     "fruit": 1,
+#     "eating_speed": 10,  # seconds
+#     "start_eating": datetime.datetime.now(),
+#     "experience": 0,
+#     "level": 0,
+# })
 
-animals_table['pikachu'] = Animal(**{
-    "name": "Pupu",
-    "slug": "pikachu",
-    "image": "pikachu.png",
-    "fruit_slug": "watermelon",
-    "fruit": 1,
-    "eating_speed": 15,  # seconds
-    "start_eating": datetime.datetime.now(),
-    "experience": 0,
-    "level": 0,
-})
+# animals_table['pikachu'] = Animal(**{
+#     "name": "Pupu",
+#     "slug": "pikachu",
+#     "image": "pikachu.png",
+#     "fruit_slug": "watermelon",
+#     "fruit": 1,
+#     "eating_speed": 15,  # seconds
+#     "start_eating": datetime.datetime.now(),
+#     "experience": 0,
+#     "level": 0,
+# })
 
 FRUIT_TIMEOUT = 60
 
