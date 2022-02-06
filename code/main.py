@@ -29,6 +29,7 @@ class Animal(BaseModel):
     experience = 0
     level = 0
     start_eating: datetime.datetime
+    last_source: Optional[str]  # Where this animal last received a fruit from
 
 
 class Player(BaseModel):
@@ -176,6 +177,7 @@ def handle_fruit_collected(point, timeout=False):
                 animal.fruit += 1
                 if point.super_fruit:
                     animal.fruit += 4
+                animal.last_source = point.barcode
                 animals_table[animal.slug] = animal
             point.fruit = None
             point.fruit_death = datetime.datetime.now()

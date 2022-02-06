@@ -49,6 +49,10 @@
         img {
             height: 100%;
         }
+        img.newFruit {
+            position: absolute;
+            height: auto !important;
+        }
         #svg-el {
             display: none;
             position: absolute;
@@ -128,8 +132,7 @@
                             <div class="level-progress" :style="{width: `${(animal.experience - (animal.level * 5)) * 20 }%`}"></div>
                         </div>
                     </span>
-                    <img class="fruit" v-for="index in animal.fruit" :key="index" :src="`/static/${animal.fruit_slug}.png`">
-
+                    <img class="fruit" v-for="index in animal.fruit" :key="index" :src="`/static/${animal.fruit_slug}.png`" :class="{'newFruit': (index == (animal.fruit) && animal.newFruitFrom) }">
                 </div>
             </div>
         </div>
@@ -179,7 +182,7 @@
                             console.log(response.data);
                             this.players = response.data.players;
                             this.points = response.data.codes;
-                            this.animals = response.data.animals;
+                            this.handleAnimals(response.data.animals)
                             this.handlePlayers();
                         })
                         .catch(error => {
@@ -238,6 +241,45 @@
                         }
                     })
                 },
+                handleAnimals(newAnimals) {
+                    for (const animalSlug in newAnimals) {
+                        const animal = newAnimals[animalSlug];
+                        animal.newFruitFrom = false;
+                        if (this.animals[animalSlug]) {
+                            if (this.animals[animalSlug].fruit < animal.fruit) {
+                                if (!document.querySelector(".newFruit")) {
+                                    // New fruit
+                                    animal.newFruitFrom = true;
+                                    const pointFrom = this.points[animal.last_source];
+                                    if (pointFrom) {
+                                        animal.pointFrom = pointFrom;
+                                        // Animate newFruit
+                                        this.$nextTick(() => {
+                                            const newFruitEl = document.querySelector(".newFruit");
+                                            const animalEl = document.querySelector("#animal-" + animalSlug);
+                                            const animalPos = animalEl.getBoundingClientRect();
+                                            const animalInnerEl = animalEl.querySelector(".animal");
+                                            newFruitEl.style.top = this.yToPx(pointFrom.y);
+                                            newFruitEl.style.left = this.xToPx(pointFrom.x);
+                                            newFruitEl.style.transition = "all 2s";
+                                            this.$nextTick(() => {
+                                                newFruitEl.style.top = (animalPos.top + animalInnerEl.offsetHeight - 50) + "px";
+                                                newFruitEl.style.left = (animalPos.left + animalInnerEl.offsetWidth) + "px";
+                                            })
+                                            setTimeout(() => {
+                                                // Remove class newFruit
+                                                newFruitEl.classList.remove("newFruit");
+                                            }, 2000);
+                                        })
+                                    }
+                                }
+                            } else if (this.animals[animalSlug].fruit == animal.fruit) {
+                                continue
+                            }
+                        }
+                        this.animals[animalSlug] = animal;
+                    }
+                }
             },
             computed: {
                 imgEl() {
