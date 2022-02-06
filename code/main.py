@@ -1,11 +1,11 @@
-import code
-from ctypes import pointer
 from flask import Flask, render_template, request
 from sqlitedict import SqliteDict
 import os
 import datetime
 import random
-import logging
+
+from typing import List, Optional
+from pydantic import BaseModel
 
 data_folder = '/data'
 if not os.path.exists(data_folder):
@@ -19,18 +19,39 @@ main_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="main", 
 players_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="players", autocommit=True)
 animals_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="animals", autocommit=True)
 
-# players_table["testplayer"] = {
-#     "history": ["http://koodi-2"],
-#     "ip_address": "ip_address",
-#     "last_seen": datetime.datetime.now(),
-# }
 
-init_tables = False
-if animals_table.get('mouse', {}).get('experience', None) is None:
-    init_tables = True
+class Animal(BaseModel):
+    slug: str
+    name = 'Nimi'
+    fruit_slug: str
+    fruit = 1
+    eating_speed = 8
+    experience = 0
+    level = 0
+    start_eating: datetime.datetime
+
+
+class Player(BaseModel):
+    name = ''
+    ip_address: str
+    last_seen: datetime.datetime
+    history: List[str]
+
+
+class Point(BaseModel):
+    barcode: str
+    x: int
+    y: int
+    name: Optional[str]
+    fruit: Optional[str]
+    fruit_death: Optional[datetime.datetime]
+    super_fruit = False
+    fruit_timeout: Optional[datetime.datetime]
+    close_to_timeout = False
+
 
 # if 'mouse' not in animals_table or init_tables:
-animals_table['mouse'] = {
+animals_table['mouse'] = Animal(**{
     "name": "Hiiri",
     "slug": "mouse",
     "image": "mouse.png",
@@ -40,10 +61,10 @@ animals_table['mouse'] = {
     "start_eating": datetime.datetime.now(),
     "experience": 0,
     "level": 0,
-}
+})
 
 # if 'bunny' not in animals_table or init_tables:
-animals_table['bunny'] = {
+animals_table['bunny'] = Animal(**{
     "name": "Pupu",
     "slug": "bunny",
     "image": "bunny.png",
@@ -53,9 +74,9 @@ animals_table['bunny'] = {
     "start_eating": datetime.datetime.now(),
     "experience": 0,
     "level": 0,
-}
+})
 
-animals_table['pikachu'] = {
+animals_table['pikachu'] = Animal(**{
     "name": "Pupu",
     "slug": "pikachu",
     "image": "pikachu.png",
@@ -65,12 +86,12 @@ animals_table['pikachu'] = {
     "start_eating": datetime.datetime.now(),
     "experience": 0,
     "level": 0,
-}
+})
 
 FRUIT_TIMEOUT = 60
 
 def _init_row(barcode=''):
-    return {
+    return Point(**{
         'barcode': barcode,
         'x': 0,
         'y': 0,
@@ -79,16 +100,7 @@ def _init_row(barcode=''):
         'fruit_death': datetime.datetime.now() - datetime.timedelta(days=1),
         "super_fruit": False,
         'fruit_timeout': datetime.datetime.now() + datetime.timedelta(seconds=FRUIT_TIMEOUT),
-    }
-
-
-for orig_key, point in codes_table.items():
-    initial_row = _init_row()
-    for key in initial_row.keys():
-        if key not in point:
-            point[key] = initial_row[key]
-    codes_table[orig_key] = point
-    logger.info("Initializing code %s: %s", orig_key, point.keys())
+    })
 
 
 INITIAL_CODES = [
@@ -107,7 +119,7 @@ for initial_code in INITIAL_CODES:
 
 
 for key, point in codes_table.items():
-    point['fruit_death'] = datetime.datetime.now() - datetime.timedelta(days=1)
+    point.fruit_death = datetime.datetime.now() - datetime.timedelta(days=1)
     codes_table[key] = point
 
 
@@ -124,9 +136,9 @@ def add_barcode():
     if 'koodi' not in barcode:
         return 'No koodi provided'
     row = _init_row()
-    row['barcode'] = barcode
+    row.barcode = barcode
     codes_table[barcode] = row
-    return row
+    return 'ok'
 
 
 @app.route("/api/modify", methods=['POST'])
@@ -140,12 +152,12 @@ def modify_barcode():
     row = codes_table.get(barcode)
     if not row:
         return 'error'
-    row['x'] = x
-    row['y'] = y
+    row.x = x
+    row.y = y
     if name:
-        row['name'] = name
+        row.name = name
     codes_table[barcode] = row
-    return row
+    return 'ok'
 
 
 def distance(x1, y1, x2, y2):
@@ -154,26 +166,26 @@ def distance(x1, y1, x2, y2):
 
 def handle_fruit_collected(point, timeout=False):
     for key, animal in animals_table.items():
-        if animal['fruit_slug'] == point['fruit']:
+        if animal.fruit_slug == point.fruit:
             if timeout:
-                logger.info("Fruit timeout: %s at %s", point['fruit'], point['barcode'])
+                logger.info("Fruit timeout: %s at %s", point.fruit, point.barcode)
             else:
-                logger.info("Fruit collected: %s at %s", point['fruit'], point['barcode'])
-                if animal["fruit"] == 0:
-                    animal["start_eating"] = datetime.datetime.now()
-                animal['fruit'] += 1
-                if point['super_fruit']:
-                    animal['fruit'] += 4
-                animals_table[animal["slug"]] = animal
-            point['fruit'] = None
-            point['fruit_death'] = datetime.datetime.now()
+                logger.info("Fruit collected: %s at %s", point.fruit, point.barcode)
+                if animal.fruit == 0:
+                    animal.start_eating = datetime.datetime.now()
+                animal.fruit += 1
+                if point.super_fruit:
+                    animal.fruit += 4
+                animals_table[animal.slug] = animal
+            point.fruit = None
+            point.fruit_death = datetime.datetime.now()
             if timeout:
                 # Respawn faster after timeout
-                point['fruit_death'] = datetime.datetime.now() - datetime.timedelta(seconds=60)
-            codes_table[point['barcode']] = point
+                point.fruit_death = datetime.datetime.now() - datetime.timedelta(seconds=60)
+            codes_table[point.barcode] = point
 
             for point in codes_table.values():
-                if point['fruit']:
+                if point.fruit:
                     break
             else:
                 logger.info("All fruits collected")
@@ -181,39 +193,43 @@ def handle_fruit_collected(point, timeout=False):
                 respawn_fruit(point)
             break
     else:
-        logger.warning("Fruit %s not found in animals table", point['fruit'])
-        point['fruit'] = None
-        codes_table[point['barcode']] = point
+        logger.warning("Fruit %s not found in animals table", point.fruit)
+        point.fruit = None
+        codes_table[point.barcode] = point
 
 def respawn_fruit(point):
-    fruit_slugs = list(set([animal["fruit_slug"] for animal in animals_table.values()]))
-    point['fruit'] = random.choice(fruit_slugs)
-    point['super_fruit'] = random.randint(0, 100) < 10
-    point['fruit_timeout'] = datetime.datetime.now() + datetime.timedelta(seconds=FRUIT_TIMEOUT)
-    logger.info("Fruit respawned at code %s: %s", point['barcode'], point['fruit'])
-    codes_table[point['barcode']] = point
+    fruit_slugs = list(set([animal.fruit_slug for animal in animals_table.values()]))
+    point.fruit = random.choice(fruit_slugs)
+    point.super_fruit = random.randint(0, 100) < 10
+    point.fruit_timeout = datetime.datetime.now() + datetime.timedelta(seconds=FRUIT_TIMEOUT)
+    logger.info("Fruit respawned at code %s: %s", point.barcode, point.fruit)
+    codes_table[point.barcode] = point
 
 
 def handle_animal_eating(animal):
-    if not animal['fruit'] or animal['fruit'] < 1:
-        animal['fruit'] = 0
-    elif animal['start_eating'] < (datetime.datetime.now() - datetime.timedelta(seconds=animal['eating_speed'])):
-        animal['fruit'] = animal['fruit'] - 1
-        animal['start_eating'] = datetime.datetime.now()
-        logger.info("%s ate a %s: %s left", animal['name'], animal['fruit_slug'], animal["fruit"])
-        animal["experience"] += 1
-    animal["level"] = int(animal["experience"] / 5)
-    animals_table[animal["slug"]] = animal
+    if not animal.fruit or animal.fruit < 1:
+        animal.fruit = 0
+    elif animal.start_eating < (datetime.datetime.now() - datetime.timedelta(seconds=animal.eating_speed)):
+        animal.fruit = animal.fruit - 1
+        animal.start_eating = datetime.datetime.now()
+        logger.info("%s ate a %s: %s left", animal.name, animal.fruit_slug, animal.fruit)
+        animal.experience += 1
+    animal.level = int(animal.experience / 5)
+    animals_table[animal.slug] = animal
+
+
+def table_to_dict(_dict):
+    return {key: dict(value) for key, value in _dict.items()}
 
 
 @app.route("/api/tick")
 def game_tick():
     for key, point in codes_table.items():
-        if point.get('fruit') and point.get('fruit_timeout') < datetime.datetime.now():
+        if point.fruit and point.fruit_timeout < datetime.datetime.now():
             handle_fruit_collected(point, timeout=True)
-        if point.get('fruit'):
+        if point.fruit:
             continue
-        if not point['fruit_death'] or point['fruit_death'] < (datetime.datetime.now() - datetime.timedelta(seconds=90)):
+        if not point.fruit_death or point.fruit_death < (datetime.datetime.now() - datetime.timedelta(seconds=90)):
             respawn_fruit(point)
 
     for key, animal in animals_table.items():
@@ -221,20 +237,20 @@ def game_tick():
 
     dead_players = []
     for key, player in players_table.items():
-        if not player.get("last_seen") or (player["last_seen"] < datetime.datetime.now() - datetime.timedelta(minutes=10)):
+        if not player.last_seen or (player.last_seen < datetime.datetime.now() - datetime.timedelta(minutes=10)):
             dead_players.append(key)
 
     for key in dead_players:
         del players_table[key]
 
-    codes = dict(codes_table)
+    codes = table_to_dict(codes_table)
     for key in codes:
-        codes[key]['close_to_timeout'] = codes[key]['fruit_timeout'] < (datetime.datetime.now() + datetime.timedelta(seconds=15))
+        codes[key]["close_to_timeout"] = codes[key]["fruit_timeout"] < (datetime.datetime.now() + datetime.timedelta(seconds=15))
 
     return {
         "codes": codes,
-        "players": dict(players_table),
-        "animals": dict(animals_table),
+        "players": table_to_dict(players_table),
+        "animals": table_to_dict(animals_table),
     }
 
 
@@ -248,19 +264,19 @@ def mark_barcodes():
         return 'Barcode not found'
     player = players_table.get(ip_address)
     if not player:
-        player = {
+        player = Player(**{
             "history": [],
             "ip_address": ip_address,
             "last_seen": datetime.datetime.now(),
-        }
+        })
 
-    player["history"].append(barcode)
-    player["history"] = player["history"][-4:]
+    player.history.append(barcode)
+    player.history = player.history[-4:]
     players_table[ip_address] = player
 
     point = codes_table[barcode]
     got_one = False
-    if point['fruit']:
+    if point.fruit:
         handle_fruit_collected(point)
         got_one = True
 
