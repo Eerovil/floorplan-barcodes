@@ -16,11 +16,12 @@ logger = app.logger
 
 codes_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="codes", autocommit=True)
 main_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="main", autocommit=True)
-players_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="players", autocommit=True)
-animals_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="animals", autocommit=True)
+players_table = SqliteDict(os.path.join(data_folder, 'progress.db'), tablename="players", autocommit=True)
+animals_table = SqliteDict(os.path.join(data_folder, 'progress.db'), tablename="animals", autocommit=True)
 
 
 class Animal(BaseModel):
+    active: bool
     slug: str
     name = 'Nimi'
     fruit_slug: str
@@ -30,6 +31,7 @@ class Animal(BaseModel):
     level = 0
     start_eating: datetime.datetime
     last_source: Optional[str]  # Where this animal last received a fruit from
+    evolution: Optional[str]  # Slug of the animal that this animal evolves into
 
 
 class Player(BaseModel):
@@ -53,6 +55,7 @@ class Point(BaseModel):
 
 # if 'mouse' not in animals_table or init_tables:
 animals_table['mouse'] = Animal(**{
+    "active": False,
     "name": "Hiiri",
     "slug": "mouse",
     "image": "mouse.png",
@@ -66,6 +69,7 @@ animals_table['mouse'] = Animal(**{
 
 # if 'bunny' not in animals_table or init_tables:
 animals_table['bunny'] = Animal(**{
+    "active": False,
     "name": "Pupu",
     "slug": "bunny",
     "image": "bunny.png",
@@ -78,9 +82,24 @@ animals_table['bunny'] = Animal(**{
 })
 
 animals_table['pikachu'] = Animal(**{
+    "active": True,
     "name": "Pupu",
     "slug": "pikachu",
     "image": "pikachu.png",
+    "fruit_slug": "watermelon",
+    "fruit": 1,
+    "eating_speed": 1,  # seconds
+    "start_eating": datetime.datetime.now(),
+    "experience": 0,
+    "level": 0,
+    "evolution": "raichu",
+})
+
+animals_table['raichu'] = Animal(**{
+    "active": False,
+    "name": "Raichu",
+    "slug": "raichu",
+    "image": "raichu.png",
     "fruit_slug": "watermelon",
     "fruit": 1,
     "eating_speed": 15,  # seconds
@@ -94,8 +113,8 @@ FRUIT_TIMEOUT = 60
 def _init_row(barcode=''):
     return Point(**{
         'barcode': barcode,
-        'x': 0,
-        'y': 0,
+        'x': 0.1,
+        'y': 0.1,
         'name': None,
         'fruit': None,
         'fruit_death': datetime.datetime.now() - datetime.timedelta(days=1),
@@ -171,6 +190,8 @@ def distance(x1, y1, x2, y2):
 
 def handle_fruit_collected(point, timeout=False):
     for key, animal in animals_table.items():
+        if not animal.active:
+            continue
         if animal.fruit_slug == point.fruit:
             if timeout:
                 logger.info("Fruit timeout: %s at %s", point.fruit, point.barcode)
@@ -204,7 +225,7 @@ def handle_fruit_collected(point, timeout=False):
         codes_table[point.barcode] = point
 
 def respawn_fruit(point):
-    fruit_slugs = list(set([animal.fruit_slug for animal in animals_table.values()]))
+    fruit_slugs = list(set([animal.fruit_slug for animal in animals_table.values() if animal.active]))
     point.fruit = random.choice(fruit_slugs)
     point.super_fruit = random.randint(0, 100) < 10
     point.fruit_timeout = datetime.datetime.now() + datetime.timedelta(seconds=FRUIT_TIMEOUT)
@@ -221,6 +242,11 @@ def handle_animal_eating(animal):
         logger.info("%s ate a %s: %s left", animal.name, animal.fruit_slug, animal.fruit)
         animal.experience += 1
     animal.level = int(animal.experience / 5)
+    if animal.level >= 3 and animal.evolution:
+        animal.active = False
+        animals_table[animal.slug] = animal
+        animal = animals_table[animal.evolution]
+        animal.active = True
     animals_table[animal.slug] = animal
 
 
@@ -253,10 +279,12 @@ def game_tick():
     for key in codes:
         codes[key]["close_to_timeout"] = codes[key]["fruit_timeout"] < (datetime.datetime.now() + datetime.timedelta(seconds=15))
 
+    animals = {key: value for key, value in table_to_dict(animals_table).items() if value["active"]}
+
     return {
         "codes": codes,
         "players": table_to_dict(players_table),
-        "animals": table_to_dict(animals_table),
+        "animals": animals,
     }
 
 
