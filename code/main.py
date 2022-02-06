@@ -18,6 +18,7 @@ codes_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="codes"
 main_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="main", autocommit=True)
 players_table = SqliteDict(os.path.join(data_folder, 'progress.db'), tablename="players", autocommit=True)
 animals_table = SqliteDict(os.path.join(data_folder, 'progress.db'), tablename="animals", autocommit=True)
+powerups_table = SqliteDict(os.path.join(data_folder, 'progress.db'), tablename="powerups", autocommit=True)
 
 
 class Animal(BaseModel):
@@ -51,6 +52,16 @@ class Point(BaseModel):
     super_fruit = False
     fruit_timeout: Optional[datetime.datetime]
     close_to_timeout = False
+
+
+class Powerup(BaseModel):
+    name: str
+    slug: str
+    duration: int
+    active: bool
+    available: bool
+    cooldown: int
+    start_time: datetime.datetime
 
 
 # if 'mouse' not in animals_table or init_tables:
@@ -107,6 +118,18 @@ animals_table['raichu'] = Animal(**{
     "experience": 0,
     "level": 0,
 })
+
+
+powerups_table['super_fruits'] = Powerup(
+    slug='super_fruits',
+    name='Kaikki on superhedelmiä',
+    duration=60,
+    cooldown=60 * 10,
+    active=False,
+    available=True,
+    start_time=datetime.datetime.now() - datetime.timedelta(days=1),
+)
+
 
 FRUIT_TIMEOUT = 60
 
@@ -188,48 +211,87 @@ def distance(x1, y1, x2, y2):
     return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
 
 
+def active_powerups():
+    return {key: value for key, value in powerups_table.items() if value.active}
+
+
 def handle_fruit_collected(point, timeout=False):
-    for key, animal in animals_table.items():
-        if not animal.active:
-            continue
-        if animal.fruit_slug == point.fruit:
-            if timeout:
-                logger.info("Fruit timeout: %s at %s", point.fruit, point.barcode)
-            else:
+    handled = False
+    if timeout:
+        logger.info("Fruit timeout: %s at %s", point.fruit, point.barcode)
+        point.fruit = None
+        # Respawn faster after timeout
+        point.fruit_death = datetime.datetime.now() - datetime.timedelta(seconds=60)
+        handled = True
+
+    if not handled:
+        for key, powerup in powerups_table.items():
+            if powerup.slug == point.fruit:
+                powerup.active = True
+                powerup.start_time = datetime.datetime.now()
+                powerups_table[key] = powerup
+                point.fruit = None
+                point.fruit_death = datetime.datetime.now()
+                handled = True
+                logger.info("Powerup collected: %s at %s", powerup.slug, point.barcode)
+
+    if not handled:
+        for key, animal in animals_table.items():
+            if not animal.active:
+                continue
+            if animal.fruit_slug == point.fruit:
                 logger.info("Fruit collected: %s at %s", point.fruit, point.barcode)
                 if animal.fruit == 0:
                     animal.start_eating = datetime.datetime.now()
                 animal.fruit += 1
-                if point.super_fruit:
+                if point.super_fruit or 'super_fruits' in active_powerups():
                     animal.fruit += 4
                 animal.last_source = point.barcode
                 animals_table[animal.slug] = animal
+                point.fruit = None
+                point.fruit_death = datetime.datetime.now()
+                handled = True
+        else:
+            logger.warning("Fruit %s not found in any table", point.fruit)
             point.fruit = None
-            point.fruit_death = datetime.datetime.now()
-            if timeout:
-                # Respawn faster after timeout
-                point.fruit_death = datetime.datetime.now() - datetime.timedelta(seconds=60)
-            codes_table[point.barcode] = point
+    
+    codes_table[point.barcode] = point
 
-            for point in codes_table.values():
-                if point.fruit:
-                    break
-            else:
-                logger.info("All fruits collected")
-                point = random.choice(list(codes_table.values()))
-                respawn_fruit(point)
+    for point in codes_table.values():
+        if point.fruit:
             break
     else:
-        logger.warning("Fruit %s not found in animals table", point.fruit)
-        point.fruit = None
-        codes_table[point.barcode] = point
+        logger.info("All fruits collected")
+        point = random.choice(list(codes_table.values()))
+        respawn_fruit(point)
+
 
 def respawn_fruit(point):
-    fruit_slugs = list(set([animal.fruit_slug for animal in animals_table.values() if animal.active]))
-    point.fruit = random.choice(fruit_slugs)
-    point.super_fruit = random.randint(0, 100) < 10
-    point.fruit_timeout = datetime.datetime.now() + datetime.timedelta(seconds=FRUIT_TIMEOUT)
-    logger.info("Fruit respawned at code %s: %s", point.barcode, point.fruit)
+    powerups = []
+    for powerup_slug, powerup in powerups_table.items():
+        if powerup.active or not powerup.available:
+            continue
+        if powerup.start_time + datetime.timedelta(seconds=powerup.cooldown) > datetime.datetime.now():
+            continue
+        for _point in codes_table.values():
+            if _point.fruit == powerup_slug:
+                break
+        else:
+            powerups.append(powerup)
+
+    point.super_fruit = False
+
+    if len(powerups) > 0:
+        powerup = random.choice(powerups)
+        logger.info("Powerup %s spawned", powerup.slug)
+        point.fruit = powerup.slug
+        point.fruit_timeout = datetime.datetime.now() + datetime.timedelta(seconds=FRUIT_TIMEOUT)
+    else:
+        fruit_slugs = list(set([animal.fruit_slug for animal in animals_table.values() if animal.active]))
+        point.fruit = random.choice(fruit_slugs)
+        point.super_fruit = random.randint(0, 100) < 10
+        point.fruit_timeout = datetime.datetime.now() + datetime.timedelta(seconds=FRUIT_TIMEOUT)
+        logger.info("Fruit respawned at code %s: %s", point.barcode, point.fruit)
     codes_table[point.barcode] = point
 
 
@@ -264,6 +326,12 @@ def game_tick():
         if not point.fruit_death or point.fruit_death < (datetime.datetime.now() - datetime.timedelta(seconds=90)):
             respawn_fruit(point)
 
+    for key, powerup in powerups_table.items():
+        if powerup.active and powerup.start_time + datetime.timedelta(seconds=powerup.duration) < datetime.datetime.now():
+            powerup.active = False
+            powerups_table[key] = powerup
+            logger.info("Powerup %s expired", powerup.slug)
+
     for key, animal in animals_table.items():
         handle_animal_eating(animal)
 
@@ -284,6 +352,7 @@ def game_tick():
     return {
         "codes": codes,
         "players": table_to_dict(players_table),
+        "powerups": table_to_dict(powerups_table),
         "animals": animals,
     }
 

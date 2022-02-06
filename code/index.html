@@ -120,7 +120,7 @@
                 @click="markPoint(point)"
                 :title="point.barcode"
             >
-                <img v-if="point.fruit" :src="`/static/${point.fruit}.png`" class="fruit" :class="{'super-fruit': point.super_fruit, vibrating: point.close_to_timeout}">
+                <img v-if="point.fruit" :src="`/static/${point.fruit}.png`" class="fruit" :class="{'super-fruit': point.super_fruit || superFruits, vibrating: point.close_to_timeout}">
             </div>
             <div v-for="(player, key) in players" :id="`player-${cleanCode(key)}`" class="player"></div>
             <div id="animals">
@@ -145,6 +145,7 @@
                 points: [],
                 players: {},
                 animals: {},
+                powerups: {},
                 dragTarget: null,
                 pointSize: 25,
 
@@ -182,6 +183,7 @@
                             console.log(response.data);
                             this.players = response.data.players;
                             this.points = response.data.codes;
+                            this.powerups = response.data.powerups;
                             this.handleAnimals(response.data.animals)
                             this.handlePlayers();
                         })
@@ -289,6 +291,14 @@
             computed: {
                 imgEl() {
                     return this.$refs.img;
+                },
+                superFruits() {
+                    for (const powerup of Object.values(this.powerups)) {
+                        if (powerup.active && powerup.slug == "super_fruits") {
+                            return true;
+                        }
+                    }
+                    return false;
                 }
             }
         });
