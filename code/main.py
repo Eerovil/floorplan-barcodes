@@ -23,6 +23,7 @@ powerups_table = SqliteDict(os.path.join(data_folder, 'progress.db'), tablename=
 
 class Animal(BaseModel):
     active: bool
+    spawns = True
     slug: str
     name = 'Nimi'
     fruit_slug: str
@@ -66,13 +67,13 @@ class Powerup(BaseModel):
 
 # if 'mouse' not in animals_table or init_tables:
 animals_table['mouse'] = Animal(**{
-    "active": False,
+    "active": True,
     "name": "Hiiri",
     "slug": "mouse",
     "image": "mouse.png",
     "fruit_slug": "apple",
     "fruit": 1,
-    "eating_speed": 8,  # seconds
+    "eating_speed": 4,  # seconds
     "start_eating": datetime.datetime.now(),
     "experience": 0,
     "level": 0,
@@ -86,20 +87,20 @@ animals_table['bunny'] = Animal(**{
     "image": "bunny.png",
     "fruit_slug": "carrot",
     "fruit": 1,
-    "eating_speed": 10,  # seconds
+    "eating_speed": 4,  # seconds
     "start_eating": datetime.datetime.now(),
     "experience": 0,
     "level": 0,
 })
 
 animals_table['pikachu'] = Animal(**{
-    "active": True,
+    "active": False,
     "name": "Pupu",
     "slug": "pikachu",
     "image": "pikachu.png",
     "fruit_slug": "watermelon",
     "fruit": 1,
-    "eating_speed": 1,  # seconds
+    "eating_speed": 4,  # seconds
     "start_eating": datetime.datetime.now(),
     "experience": 0,
     "level": 0,
@@ -108,12 +109,13 @@ animals_table['pikachu'] = Animal(**{
 
 animals_table['raichu'] = Animal(**{
     "active": False,
+    "spawns": False,
     "name": "Raichu",
     "slug": "raichu",
     "image": "raichu.png",
     "fruit_slug": "watermelon",
     "fruit": 1,
-    "eating_speed": 15,  # seconds
+    "eating_speed": 8,  # seconds
     "start_eating": datetime.datetime.now(),
     "experience": 0,
     "level": 0,
@@ -123,8 +125,8 @@ animals_table['raichu'] = Animal(**{
 powerups_table['super_fruits'] = Powerup(
     slug='super_fruits',
     name='Kaikki on superhedelmiä',
-    duration=60,
-    cooldown=60 * 10,
+    duration=45,
+    cooldown=60 * 5,
     active=False,
     available=True,
     start_time=datetime.datetime.now() - datetime.timedelta(days=1),
@@ -225,6 +227,16 @@ def handle_fruit_collected(point, timeout=False):
         handled = True
 
     if not handled:
+        for key, animal in animals_table.items():
+            if animal.slug == point.fruit:
+                animal.active = True
+                animals_table[key] = animal
+                point.fruit = None
+                point.fruit_death = datetime.datetime.now()
+                handled = True
+                logger.info("Animal collected: %s at %s", animal.slug, point.barcode)
+
+    if not handled:
         for key, powerup in powerups_table.items():
             if powerup.slug == point.fruit:
                 powerup.active = True
@@ -279,9 +291,24 @@ def respawn_fruit(point):
         else:
             powerups.append(powerup)
 
+    spawnable_animals = []
+    for key, animal in animals_table.items():
+        if not animal.active and animal.spawns:
+            for _point in codes_table.values():
+                if _point.fruit == animal.slug:
+                    break
+            else:
+                spawnable_animals.append(animal)
+
+
     point.super_fruit = False
 
-    if len(powerups) > 0:
+    if len(spawnable_animals) > 0 and random.randint(0, 100) < 50:
+        # 10% chance to spawn new animal
+        point.fruit = spawnable_animals[0].slug
+        logger.info("Animal %s spawned", point.fruit)
+        point.fruit_timeout = datetime.datetime.now() + datetime.timedelta(seconds=FRUIT_TIMEOUT - 25)
+    elif len(powerups) > 0 and random.randint(0, 100) < 50:
         powerup = random.choice(powerups)
         logger.info("Powerup %s spawned", powerup.slug)
         point.fruit = powerup.slug
