@@ -121,6 +121,50 @@ animals_table['raichu'] = Animal(**{
     "level": 0,
 })
 
+animals_table['squirtle'] = Animal(**{
+    "active": False,
+    "name": "Squirtle",
+    "slug": "squirtle",
+    "image": "squirtle.png",
+    "fruit_slug": "sandvich",
+    "fruit": 0,
+    "eating_speed": 6,  # seconds
+    "start_eating": datetime.datetime.now(),
+    "experience": 0,
+    "level": 0,
+    "evolution": "wartortle",
+})
+
+animals_table["wartortle"] = Animal(**{
+    "active": False,
+    "spawns": False,
+    "name": "wartortle",
+    "slug": "wartortle",
+    "image": "wartortle.png",
+    "fruit_slug": "sandvich",
+    "fruit": 0,
+    "eating_speed": 8,  # seconds
+    "start_eating": datetime.datetime.now(),
+    "experience": 0,
+    "level": 0,
+    "evolution": "blastoise",
+})
+
+animals_table["blastoise"] = Animal(**{
+    "active": False,
+    "spawns": False,
+    "name": "blastoise",
+    "slug": "blastoise",
+    "image": "blastoise.png",
+    "fruit_slug": "sandvich",
+    "fruit": 0,
+    "eating_speed": 8,  # seconds
+    "start_eating": datetime.datetime.now(),
+    "experience": 0,
+    "level": 0,
+})
+
+
 
 powerups_table['super_fruits'] = Powerup(
     slug='super_fruits',
