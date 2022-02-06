@@ -77,7 +77,24 @@ animals_table['mouse'] = Animal(**{
     "start_eating": datetime.datetime.now(),
     "experience": 0,
     "level": 0,
+    "evolution": "transformice",
 })
+
+
+animals_table['transformice'] = Animal(**{
+    "active": False,
+    "spawns": False,
+    "name": "Hiiri",
+    "slug": "transformice",
+    "image": "transformice.png",
+    "fruit_slug": "apple",
+    "fruit": 1,
+    "eating_speed": 8,  # seconds
+    "start_eating": datetime.datetime.now(),
+    "experience": 0,
+    "level": 0,
+})
+
 
 # if 'bunny' not in animals_table or init_tables:
 animals_table['bunny'] = Animal(**{
@@ -88,6 +105,21 @@ animals_table['bunny'] = Animal(**{
     "fruit_slug": "carrot",
     "fruit": 1,
     "eating_speed": 4,  # seconds
+    "start_eating": datetime.datetime.now(),
+    "experience": 0,
+    "level": 0,
+    "evolution": "chungus",
+})
+
+animals_table['chungus'] = Animal(**{
+    "active": False,
+    "spawns": False,
+    "name": "Pupu",
+    "slug": "chungus",
+    "image": "chungus.png",
+    "fruit_slug": "carrot",
+    "fruit": 1,
+    "eating_speed": 8,  # seconds
     "start_eating": datetime.datetime.now(),
     "experience": 0,
     "level": 0,
@@ -336,13 +368,14 @@ def respawn_fruit(point):
             powerups.append(powerup)
 
     spawnable_animals = []
-    for key, animal in animals_table.items():
-        if not animal.active and animal.spawns:
+    for key, animal in sorted(animals_table.items(), key=lambda _ani: _ani[0]):
+        if (not animal.active) and animal.spawns:
             for _point in codes_table.values():
                 if _point.fruit == animal.slug:
                     break
             else:
                 spawnable_animals.append(animal)
+            break
 
 
     point.super_fruit = False
