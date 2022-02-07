@@ -53,6 +53,7 @@ class Point(BaseModel):
     super_fruit = False
     fruit_timeout: Optional[datetime.datetime]
     close_to_timeout = False
+    gift = False
 
 
 class Powerup(BaseModel):
@@ -245,6 +246,7 @@ for initial_code in INITIAL_CODES:
 
 for key, point in codes_table.items():
     point.fruit_death = datetime.datetime.now() - datetime.timedelta(days=1)
+    point.gift = False
     codes_table[key] = point
 
 
@@ -377,15 +379,29 @@ def respawn_fruit(point):
                 spawnable_animals.append(animal)
             break
 
+    gift_exists = False
+    for key, _point in codes_table.items():
+        if _point.fruit and _point.gift:
+            gift_exists = True
+            break
+
+    spawn_type = "fruit"
+    point.gift = not gift_exists
+    if not gift_exists:
+        if random.randint(0, 100) < 50:
+            if len(powerups) > 0:
+                spawn_type = "powerup"
+            elif len(spawnable_animals) > 0:
+                spawn_type = "animal"
 
     point.super_fruit = False
 
-    if len(spawnable_animals) > 0 and random.randint(0, 100) < 50:
+    if spawn_type == "animal":
         # 10% chance to spawn new animal
         point.fruit = spawnable_animals[0].slug
         logger.info("Animal %s spawned", point.fruit)
         point.fruit_timeout = datetime.datetime.now() + datetime.timedelta(seconds=FRUIT_TIMEOUT - 25)
-    elif len(powerups) > 0 and random.randint(0, 100) < 50:
+    elif spawn_type == "powerup":
         powerup = random.choice(powerups)
         logger.info("Powerup %s spawned", powerup.slug)
         point.fruit = powerup.slug
@@ -499,6 +515,12 @@ def mark_barcodes():
             ret += 'omenan!'
         elif point.fruit == 'carrot':
             ret += 'porkkanan!'
+        elif point.fruit == 'sandvich':
+            ret += 'leivän!'
+        elif point.fruit == 'super_fruits':
+            ret += 'pullon! Kaikki hedelmät on isoja!'
+        else:
+            ret += point.fruit + '!'
 
     if point.fruit:
         handle_fruit_collected(point)
