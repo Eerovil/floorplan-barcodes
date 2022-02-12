@@ -171,8 +171,8 @@
             <div id="evolving" v-if="evolving && evolving.from">
                 <h1 v-if="evolving.progress < 100">{{ '{{ evolving.from }}' }} is evolving!</h1>
                 <h1 v-else>it's now {{ '{{ evolving.to }}' }}!</h1>
-                <img class="evolving-from" :style="{display: (evolving.progress % 2 == 0) ? 'none' : 'inline'}" :src="`/static/${evolving.from}/dream_world/front_default.svg`">
-                <img class="evolving-to" :style="{display: (evolving.progress % 2 == 1) ? 'none' : 'inline'}" :src="`/static/${evolving.to}/dream_world/front_default.svg`">
+                <img class="evolving-from" :style="{display: (evolving.progress == 100 || (evolving.progress % 2 == 0)) ? 'none' : 'inline'}" :src="`/static/${evolving.from}/dream_world/front_default.svg`">
+                <img class="evolving-to" :style="{display: (evolving.progress < 100 && (evolving.progress % 2 == 1)) ? 'none' : 'inline'}" :src="`/static/${evolving.to}/dream_world/front_default.svg`">
             </div>
             <div id="shelved_animals">
                 <img v-for="animal in shelvedAnimals" :src="`/static/${animal.slug}/dream_world/front_default.svg`">
@@ -205,6 +205,7 @@
             }),
             mounted() {
                 this.fetchTick();
+                this.evolvingEvent('pichu', 'pikachu');
             },
             methods: {
                 xToPx(x, offset) {
@@ -376,13 +377,15 @@
                     this.evolving = {
                         from: from,
                         to: to,
-                        progress: 0
+                        progress: 0,
                     };
+                    this.evolving.progress = 0
                     const progressFunc = () => {
                         this.evolving.progress += 1;
                         if (this.evolving.progress <= 100) {
-                            setTimeout(progressFunc, 2 * (this.evolving.progress || 0));
+                            setTimeout(progressFunc, 3 * (this.evolving.progress || 0));
                         } else {
+                            this.evolving.progress = 100
                             setTimeout(() => {
                             this.evolving = null;
                             }, 5000)
