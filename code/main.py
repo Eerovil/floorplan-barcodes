@@ -384,6 +384,7 @@ def handle_animal_eating(animal):
         fruit_slug = animal.fruit_slug
         animal.fruit = 0
         animal.spawns = False
+        animals_table[animal.slug] = animal
         active_animals_table.pop(animal.slug)
         animal = animals_table[animal.evolution]
         animal.active = True
