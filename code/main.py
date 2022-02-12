@@ -181,6 +181,7 @@ for initial_code in INITIAL_CODES:
 
 for key, point in codes_table.items():
     point.fruit_death = datetime.datetime.now() - datetime.timedelta(days=1)
+    point.fruit_timeout = datetime.datetime.now()
     point.gift = False
     codes_table[key] = point
 
@@ -317,12 +318,11 @@ def respawn_fruit(point):
         point.fruit_timeout = datetime.datetime.now() + datetime.timedelta(seconds=FRUIT_TIMEOUT)
     else:
         fruit_slugs = list(set([animal.fruit_slug for animal in active_animals_table.values()]))
-        if len(fruit_slugs) == 0:
-            fruit_slugs = FRUIT_SLUGS
-        point.fruit = random.choice(fruit_slugs)
-        point.super_fruit = random.randint(0, 100) < 10
-        point.fruit_timeout = datetime.datetime.now() + datetime.timedelta(seconds=FRUIT_TIMEOUT)
-        logger.info("Fruit respawned at code %s: %s", point.barcode, point.fruit)
+        if len(fruit_slugs) > 0:
+            point.fruit = random.choice(fruit_slugs)
+            point.super_fruit = random.randint(0, 100) < 10
+            point.fruit_timeout = datetime.datetime.now() + datetime.timedelta(seconds=FRUIT_TIMEOUT)
+            logger.info("Fruit respawned at code %s: %s", point.barcode, point.fruit)
     codes_table[point.barcode] = point
 
 
