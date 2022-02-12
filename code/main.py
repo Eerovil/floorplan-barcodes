@@ -23,6 +23,7 @@ players_table = SqliteDict(os.path.join(data_folder, 'progress.db'), tablename="
 animals_table = SqliteDict(os.path.join(data_folder, 'progress.db'), tablename="animals", autocommit=True)
 active_animals_table = SqliteDict(os.path.join(data_folder, 'progress.db'), tablename="active_animals", autocommit=True)
 spawned_animals_table = SqliteDict(os.path.join(data_folder, 'progress.db'), tablename="spawned_animals", autocommit=True)
+shelved_animals_table = SqliteDict(os.path.join(data_folder, 'progress.db'), tablename="shelved_animals", autocommit=True)
 powerups_table = SqliteDict(os.path.join(data_folder, 'progress.db'), tablename="powerups", autocommit=True)
 
 pokemons_table = SqliteDict(os.path.join(data_folder, 'pokemons.db'), tablename="pokemons", autocommit=False)
@@ -99,6 +100,9 @@ for animal_slug in list(active_animals_table.keys()):
 
 for animal_slug in list(spawned_animals_table.keys()):
     del spawned_animals_table[animal_slug]
+
+for animal_slug in list(shelved_animals_table.keys()):
+    del shelved_animals_table[animal_slug]
 
 for pokemon_name, pokemon in pokemons_table.items():
     front_default = os.path.join(data_folder, pokemon_name, 'animated', 'front_default.gif')
@@ -325,7 +329,7 @@ def handle_animal_spawns(to_spawn):
     logger.info("Spawning %s animals", to_spawn)
     available_animals = [
         animal for animal in animals_table.values()
-        if animal.slug not in active_animals_table and animal.slug not in spawned_animals_table and animal.spawns and animal.evolution
+        if animal.slug not in active_animals_table and animal.slug not in spawned_animals_table and animal.spawns
     ]
     to_spawn = random.choices(available_animals, k=to_spawn)
     for animal in to_spawn:
@@ -385,6 +389,13 @@ def handle_animal_eating(animal):
         animal.active = True
         animal.fruit = fruit_overflow
         animal.fruit_slug = fruit_slug
+    elif animal.level >= 6:
+        active_animals_table.pop(animal.slug)
+        shelved_animals_table[animal.slug] = animal
+        animal.spawns = False
+        animals_table[animal.slug] = animal
+        return
+
     active_animals_table[animal.slug] = animal
 
 
@@ -464,7 +475,8 @@ def game_tick():
         "players": table_to_dict(players_table),
         "powerups": table_to_dict(powerups_table),
         "animals": active_animals,
-        "spawned_animals": spawned_animals
+        "spawned_animals": spawned_animals,
+        "shelved_animals": table_to_dict(shelved_animals_table),
     }
 
 
