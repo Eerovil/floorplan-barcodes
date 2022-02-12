@@ -333,7 +333,7 @@ def handle_animal_spawns(to_spawn):
         animal.location = random.choice(list(codes_table.keys()))
         used_targets = [_sp_animal.target for _sp_animal in  spawned_animals_table.values() if _sp_animal.target]
         animal.target = random.choice([point for point in codes_table.keys() if point != animal.location and point not in used_targets])
-        animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=random.randint(10, 30))
+        animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=random.randint(20, 40))
         animal.timeout = datetime.datetime.now() + datetime.timedelta(seconds=ANIMAL_TIMEOUT)
         animals_table[animal.slug] = animal
         spawned_animals_table[animal.slug] = animal
