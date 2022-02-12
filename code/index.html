@@ -109,6 +109,16 @@
             height: 5px;
             background-color: green;
         }
+        #evolving {
+            width: 100%;
+            height: 100%;
+            background-color: white;
+            position: fixed;
+            text-transform: uppercase;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
     </style>
 </head>
 <body>
@@ -152,6 +162,12 @@
                     <img :src="`/static/${animal.slug}/animated/front_default.gif`" class="animal-img">
                 </div>
             </div>
+            <div id="evolving" v-if="evolving && evolving.from">
+                <h1 v-if="evolving.progress < 100">{{ '{{ evolving.from }}' }} is evolving!</h1>
+                <h1 v-else>it's now {{ '{{ evolving.to }}' }}!</h1>
+                <img class="evolving-from" :style="{display: (evolving.progress % 2 == 0) ? 'none' : 'inline'}" :src="`/static/${evolving.from}/dream_world/front_default.svg`">
+                <img class="evolving-to" :style="{display: (evolving.progress % 2 == 1) ? 'none' : 'inline'}" :src="`/static/${evolving.to}/dream_world/front_default.svg`">
+            </div>
         </div>
     </script>
     <script>
@@ -170,6 +186,12 @@
                 playerWidth: 40,
 
                 fireworks: null,
+
+                evolving: {
+                    progress: null,
+                    from: null,
+                    to: null,
+                }
             }),
             mounted() {
                 this.fetchTick();
@@ -264,7 +286,16 @@
                     })
                 },
                 handleAnimals(newAnimals) {
+                    const expectingEvolutions = {}
+                    for (const oldAnimal of Object.values(this.animals)) {
+                        if (oldAnimal.evolution) {
+                            expectingEvolutions[oldAnimal.evolution] = oldAnimal.slug;
+                        }
+                    }
                     for (const animalSlug in newAnimals) {
+                        if (expectingEvolutions[animalSlug]) {
+                            this.evolvingEvent(expectingEvolutions[animalSlug], animalSlug);
+                        }
                         const animal = newAnimals[animalSlug];
                         animal.newFruitFrom = false;
                         if (this.animals[animalSlug]) {
@@ -329,7 +360,25 @@
                             delete this.movingAnimals[animalSlug];
                         }
                     }
-                }
+                },
+                evolvingEvent(from, to) {
+                    this.evolving = {
+                        from: from,
+                        to: to,
+                        progress: 0
+                    };
+                    const progressFunc = () => {
+                        this.evolving.progress += 1;
+                        if (this.evolving.progress < 100) {
+                            setTimeout(progressFunc, 2 * (this.evolving.progress || 0));
+                        } else {
+                            setTimeout(() => {
+                            this.evolving = null;
+                            }, 5000)
+                        }
+                    }
+                    progressFunc();
+                },
             },
             computed: {
                 imgEl() {
