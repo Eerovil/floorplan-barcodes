@@ -80,6 +80,7 @@
         #animals .animal-wrapper {
             display: flex;
             align-items: flex-end;
+            flex-wrap: wrap;
         }
         #animals .animal {
             display: flex;
@@ -134,11 +135,10 @@
                     <span class="animal" :class="{[animal.slug]: true, 'vibrating': animal.close_to_timeout}" :style="{'width': `${80 + animal.level*20}px`}">
                         <img v-if="animal.fruit" :src="`/static/${animal.slug}/animated/front_default.gif`" class="animal-img">
                         <img v-else :src="`/static/${animal.slug}/animated/front_default.gif`" class="animal-img">
-                        <div class="level-bar">
-                            <div class="level-progress" :style="{width: `${(animal.experience - (animal.level * 5)) * 50 }%`}"></div>
-                        </div>
+
                     </span>
                     <img class="fruit" v-for="index in animal.fruit" :key="index" :src="`/static/${animal.fruit_slug}.png`" :class="{'newFruit': (index == (animal.fruit) && animal.newFruitFrom) }">
+                    <div style="width: 100%">{{ '{{ animal.name.toUpperCase() }}' }} LEVEL {{ '{{ animal.level + 1 }}' }}</div>
                 </div>
             </div>
             <div if="moving-animals">
