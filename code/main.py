@@ -133,6 +133,8 @@ for pokemon_name, pokemon in pokemons_table.items():
     animals_table[pokemon_name] = next_evolution
 
 FRUIT_TIMEOUT = 60
+ANIMAL_TIMEOUT = 2 * 60
+ANIMAL_CLOSE_TIMEOUT = 30
 
 def _init_row(barcode=''):
     return Point(**{
@@ -255,6 +257,7 @@ def handle_fruit_collected(point, timeout=False):
                 if point.super_fruit or 'super_fruits' in active_powerups():
                     animal.fruit += 4
                 animal.last_source = point.barcode
+                animal.timeout = datetime.datetime.now() + datetime.timedelta(seconds=ANIMAL_TIMEOUT)
                 active_animals_table[animal.slug] = animal
                 point.fruit = None
                 point.fruit_death = datetime.datetime.now()
@@ -330,12 +333,20 @@ def handle_animal_spawns(to_spawn):
         animal.location = random.choice(list(codes_table.keys()))
         animal.target = random.choice([point for point in codes_table.keys() if point != animal.location])
         animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=random.randint(10, 30))
+        animal.timeout = datetime.datetime.now() + datetime.timedelta(seconds=ANIMAL_TIMEOUT)
         animals_table[animal.slug] = animal
         spawned_animals_table[animal.slug] = animal
         logger.info("Animal spawned: %s", animal.slug)
 
 
 def handle_spawned_animal(animal):
+    if animal.timeout and animal.timeout < datetime.datetime.now():
+        logger.info("Animal %s timeout", animal.slug)
+        animal.timeout = None
+        animal.spawned = False
+        spawned_animals_table.pop(animal.slug)
+        return
+
     if animal.target and animal.target_time:
         if animal.target_time < datetime.datetime.now():
             animal.location = animal.target
@@ -345,10 +356,18 @@ def handle_spawned_animal(animal):
 
 
 def handle_animal_eating(animal):
+    if animal.timeout and animal.timeout < datetime.datetime.now():
+        logger.info("Animal %s timeout", animal.slug)
+        animal.timeout = None
+        animal.active = False
+        active_animals_table.pop(animal.slug)
+        return
+
     if not animal.fruit or animal.fruit < 1:
         animal.fruit = 0
     elif animal.start_eating < (datetime.datetime.now() - datetime.timedelta(seconds=animal.eating_speed)):
         animal.fruit = animal.fruit - 1
+        animal.timeout = datetime.datetime.now() + datetime.timedelta(seconds=ANIMAL_TIMEOUT)
         animal.start_eating = datetime.datetime.now()
         logger.info("%s ate a %s: %s left", animal.name, animal.fruit_slug, animal.fruit)
         animal.experience += 1
@@ -369,6 +388,7 @@ def handle_animal_collected(animal):
     animal.active = True
     animal.fruit = 0
     animal.spawned = False
+    animal.timeout = datetime.datetime.now() + datetime.timedelta(seconds=ANIMAL_TIMEOUT)
     fruits_available = FRUIT_SLUGS
     # Check active animals and pick one fruit not used yet for this animal
     for active_animal in active_animals_table.values():
@@ -427,13 +447,13 @@ def game_tick():
     spawned_animals = table_to_dict(spawned_animals_table)
     for key in spawned_animals:
         if spawned_animals[key]["timeout"]:
-            spawned_animals[key]["close_to_timeout"] = spawned_animals[key]["timeout"] < (datetime.datetime.now() + datetime.timedelta(seconds=30))
+            spawned_animals[key]["close_to_timeout"] = spawned_animals[key]["timeout"] < (datetime.datetime.now() + datetime.timedelta(seconds=ANIMAL_CLOSE_TIMEOUT))
         spawned_animals[key]["seconds_to_target"] = (spawned_animals[key]["target_time"] - datetime.datetime.now()).seconds
 
     active_animals = table_to_dict(active_animals_table)
     for key in active_animals:
         if active_animals[key]["timeout"]:
-            active_animals[key]["close_to_timeout"] = active_animals[key]["timeout"] < (datetime.datetime.now() + datetime.timedelta(seconds=30))
+            active_animals[key]["close_to_timeout"] = active_animals[key]["timeout"] < (datetime.datetime.now() + datetime.timedelta(seconds=ANIMAL_CLOSE_TIMEOUT))
 
     return {
         "codes": codes,
