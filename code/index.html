@@ -65,6 +65,11 @@
         #wrapper {
             display: flex;
         }
+        .moving-animal {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+        }
         #animals {
             width: 100%;
             background-color: white;
@@ -136,6 +141,17 @@
                     <img class="fruit" v-for="index in animal.fruit" :key="index" :src="`/static/${animal.fruit_slug}.png`" :class="{'newFruit': (index == (animal.fruit) && animal.newFruitFrom) }">
                 </div>
             </div>
+            <div if="moving-animals">
+                <div
+                    v-for="animal in movingAnimals"
+                    :key="animal.slug"
+                    :style="{'top': yToPx(animal.point.y), 'left': xToPx(animal.point.x), 'width': `${pointSize}px`, 'height': `${pointSize}px`}"
+                    class="moving-animal"
+                    :class="{[`moving-animal-${animal.slug}`]: true}"
+                >
+                    <img :src="`/static/${animal.slug}/animated/front_default.gif`" class="animal-img">
+                </div>
+            </div>
         </div>
     </script>
     <script>
@@ -146,6 +162,7 @@
                 points: [],
                 players: {},
                 animals: {},
+                movingAnimals: {},
                 powerups: {},
                 dragTarget: null,
                 pointSize: 25,
@@ -181,10 +198,10 @@
                 fetchTick() {
                     axios.get('/api/tick')
                         .then(response => {
-                            console.log(response.data);
                             this.players = response.data.players;
                             this.points = response.data.codes;
                             this.powerups = response.data.powerups;
+                            this.handleMovingAnimals(response.data.spawned_animals)
                             this.handleAnimals(response.data.animals)
                             this.handlePlayers();
                         })
@@ -196,7 +213,9 @@
                         });
                 },
                 markPoint(point) {
-                    axios.post('/api/mark', {barcode: point.barcode})
+                    axios.post('/api/mark', {barcode: point.barcode}).then(resp => {
+                        console.log(resp.data)
+                    })
                 },
                 cleanCode(code) {
                     return code.replaceAll('/', '').replaceAll(':', '').replaceAll('.', '');
@@ -285,6 +304,29 @@
                     for (const animalSlug in this.animals) {
                         if (!newAnimals[animalSlug]) {
                             delete this.animals[animalSlug];
+                        }
+                    }
+                },
+                handleMovingAnimals(newAnimals) {
+                    for (const animalSlug in newAnimals) {
+                        const animal = newAnimals[animalSlug];
+                        animal.newFruitFrom = false;
+                        if (!this.movingAnimals[animalSlug] || this.movingAnimals[animalSlug].target != animal.target) {
+                            this.movingAnimals[animalSlug] = animal;
+                            this.movingAnimals[animalSlug].point = this.points[animal.location];
+                            this.$nextTick(() => {
+                                const animalEl = document.querySelector(".moving-animal-" + animalSlug);
+                                if (!animalEl) {
+                                    return
+                                }
+                                animalEl.style.transition = `all ${animal.seconds_to_target}s linear`;
+                                this.movingAnimals[animalSlug].point = this.points[animal.target];
+                            })
+                        }
+                    }
+                    for (const animalSlug in this.movingAnimals) {
+                        if (!newAnimals[animalSlug]) {
+                            delete this.movingAnimals[animalSlug];
                         }
                     }
                 }

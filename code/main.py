@@ -21,6 +21,8 @@ codes_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="codes"
 main_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="main", autocommit=True)
 players_table = SqliteDict(os.path.join(data_folder, 'progress.db'), tablename="players", autocommit=True)
 animals_table = SqliteDict(os.path.join(data_folder, 'progress.db'), tablename="animals", autocommit=True)
+active_animals_table = SqliteDict(os.path.join(data_folder, 'progress.db'), tablename="active_animals", autocommit=True)
+spawned_animals_table = SqliteDict(os.path.join(data_folder, 'progress.db'), tablename="spawned_animals", autocommit=True)
 powerups_table = SqliteDict(os.path.join(data_folder, 'progress.db'), tablename="powerups", autocommit=True)
 
 pokemons_table = SqliteDict(os.path.join(data_folder, 'pokemons.db'), tablename="pokemons", autocommit=False)
@@ -45,6 +47,7 @@ class Animal(BaseModel):
     location: Optional[str]  # Slug of the point where this animal is currently located
     target: Optional[str]  # Slug of the point where this animal is going
     target_time: Optional[datetime.datetime]  # When this animal is going to reach its target
+    timeout: Optional[datetime.datetime]  # When this animal is going to be removed from the game
 
 
 class Player(BaseModel):
@@ -90,6 +93,12 @@ powerups_table['super_fruits'] = Powerup(
 # Load pokemons
 for animal_slug in list(animals_table.keys()):
     del animals_table[animal_slug]
+
+for animal_slug in list(active_animals_table.keys()):
+    del active_animals_table[animal_slug]
+
+for animal_slug in list(spawned_animals_table.keys()):
+    del spawned_animals_table[animal_slug]
 
 for pokemon_name, pokemon in pokemons_table.items():
     front_default = os.path.join(data_folder, pokemon_name, 'animated', 'front_default.gif')
@@ -224,16 +233,6 @@ def handle_fruit_collected(point, timeout=False):
         handled = True
 
     if not handled:
-        for key, animal in animals_table.items():
-            if animal.slug == point.fruit:
-                animal.active = True
-                animals_table[key] = animal
-                point.fruit = None
-                point.fruit_death = datetime.datetime.now()
-                handled = True
-                logger.info("Animal collected: %s at %s", animal.slug, point.barcode)
-
-    if not handled:
         for key, powerup in powerups_table.items():
             if powerup.slug == point.fruit:
                 powerup.active = True
@@ -245,7 +244,7 @@ def handle_fruit_collected(point, timeout=False):
                 logger.info("Powerup collected: %s at %s", powerup.slug, point.barcode)
 
     if not handled:
-        for key, animal in animals_table.items():
+        for key, animal in active_animals_table.items():
             if not animal.active:
                 continue
             if animal.fruit_slug == point.fruit:
@@ -256,7 +255,7 @@ def handle_fruit_collected(point, timeout=False):
                 if point.super_fruit or 'super_fruits' in active_powerups():
                     animal.fruit += 4
                 animal.last_source = point.barcode
-                animals_table[animal.slug] = animal
+                active_animals_table[animal.slug] = animal
                 point.fruit = None
                 point.fruit_death = datetime.datetime.now()
                 handled = True
@@ -309,7 +308,7 @@ def respawn_fruit(point):
         point.fruit = powerup.slug
         point.fruit_timeout = datetime.datetime.now() + datetime.timedelta(seconds=FRUIT_TIMEOUT)
     else:
-        fruit_slugs = list(set([animal.fruit_slug for animal in animals_table.values() if animal.active]))
+        fruit_slugs = list(set([animal.fruit_slug for animal in active_animals_table.values()]))
         if len(fruit_slugs) == 0:
             fruit_slugs = FRUIT_SLUGS
         point.fruit = random.choice(fruit_slugs)
@@ -323,7 +322,7 @@ def handle_animal_spawns(to_spawn):
     logger.info("Spawning %s animals", to_spawn)
     available_animals = [
         animal for animal in animals_table.values()
-        if not animal.active and not animal.spawned
+        if animal.slug not in active_animals_table and animal.slug not in spawned_animals_table
     ]
     to_spawn = random.choices(available_animals, k=to_spawn)
     for animal in to_spawn:
@@ -332,7 +331,17 @@ def handle_animal_spawns(to_spawn):
         animal.target = random.choice([point for point in codes_table.keys() if point != animal.location])
         animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=random.randint(10, 30))
         animals_table[animal.slug] = animal
+        spawned_animals_table[animal.slug] = animal
         logger.info("Animal spawned: %s", animal.slug)
+
+
+def handle_spawned_animal(animal):
+    if animal.target and animal.target_time:
+        if animal.target_time < datetime.datetime.now():
+            animal.location = animal.target
+            animal.target = random.choice([point for point in codes_table.keys() if point != animal.location])
+            animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=random.randint(10, 30))
+            spawned_animals_table[animal.slug] = animal
 
 
 def handle_animal_eating(animal):
@@ -349,11 +358,11 @@ def handle_animal_eating(animal):
         fruit_overflow = animal.fruit
         animal.fruit = 0
         animal.spawns = False
-        animals_table[animal.slug] = animal
-        animal = animals_table[animal.evolution]
+        active_animals_table[animal.slug] = animal
+        animal = active_animals_table[animal.evolution]
         animal.active = True
         animal.fruit = fruit_overflow
-    animals_table[animal.slug] = animal
+    active_animals_table[animal.slug] = animal
 
 
 def handle_animal_collected(animal):
@@ -361,11 +370,14 @@ def handle_animal_collected(animal):
     animal.fruit = 0
     animal.spawned = False
     fruits_available = FRUIT_SLUGS
-    for active_animal in animals_table.values():
+    # Check active animals and pick one fruit not used yet for this animal
+    for active_animal in active_animals_table.values():
         if active_animal.active and active_animal.fruit_slug in fruits_available:
             fruits_available.remove(active_animal.fruit_slug)
     animal.fruit_slug = random.choice(fruits_available)
-    animals_table[animal.slug] = animal
+    active_animals_table[animal.slug] = animal
+    if animal.slug in spawned_animals_table:
+        del spawned_animals_table[animal.slug]
     logger.info("%s collected: %s", animal.name, animal.fruit_slug)
 
 
@@ -389,16 +401,13 @@ def game_tick():
             powerups_table[key] = powerup
             logger.info("Powerup %s expired", powerup.slug)
 
-    animals_collected = 0
-    animals_spawned = 0
-    for key, animal in animals_table.items():
-        if animal.active:
-            animals_collected += 1
-        elif animal.spawned:
-            animals_spawned += 1
+    for key, animal in active_animals_table.items():
         handle_animal_eating(animal)
-    
-    animal_to_spawn = 3 - animals_spawned - animals_collected
+
+    for key, animal in spawned_animals_table.items():
+        handle_spawned_animal(animal)
+
+    animal_to_spawn = 4 - len(spawned_animals_table) - len(active_animals_table)
     if animal_to_spawn > 0:
         handle_animal_spawns(animal_to_spawn)
 
@@ -415,13 +424,23 @@ def game_tick():
     for key in codes:
         codes[key]["close_to_timeout"] = codes[key]["fruit_timeout"] < (datetime.datetime.now() + datetime.timedelta(seconds=15))
 
-    animals = {key: value for key, value in table_to_dict(animals_table).items() if value["active"]}
+    spawned_animals = table_to_dict(spawned_animals_table)
+    for key in spawned_animals:
+        if spawned_animals[key]["timeout"]:
+            spawned_animals[key]["close_to_timeout"] = spawned_animals[key]["timeout"] < (datetime.datetime.now() + datetime.timedelta(seconds=30))
+        spawned_animals[key]["seconds_to_target"] = (spawned_animals[key]["target_time"] - datetime.datetime.now()).seconds
+
+    active_animals = table_to_dict(active_animals_table)
+    for key in active_animals:
+        if active_animals[key]["timeout"]:
+            active_animals[key]["close_to_timeout"] = active_animals[key]["timeout"] < (datetime.datetime.now() + datetime.timedelta(seconds=30))
 
     return {
         "codes": codes,
         "players": table_to_dict(players_table),
         "powerups": table_to_dict(powerups_table),
-        "animals": animals,
+        "animals": active_animals,
+        "spawned_animals": spawned_animals
     }
 
 
@@ -469,9 +488,7 @@ def mark_barcodes():
     if point.fruit:
         handle_fruit_collected(point)
 
-    for key, animal in animals_table.items():
-        if not animal.spawned:
-            continue
+    for key, animal in spawned_animals_table.items():
         if animal.target == point.barcode:
             handle_animal_collected(animal)
             ret += ' sait kiinni pokemonin ' + animal.name + '!'
