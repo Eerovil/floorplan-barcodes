@@ -49,6 +49,7 @@ class Animal(BaseModel):
     target: Optional[str]  # Slug of the point where this animal is going
     target_time: Optional[datetime.datetime]  # When this animal is going to reach its target
     timeout: Optional[datetime.datetime]  # When this animal is going to be removed from the game
+    shiny = False
 
 
 class Player(BaseModel):
@@ -334,6 +335,7 @@ def handle_animal_spawns(to_spawn):
     to_spawn = random.choices(available_animals, k=to_spawn)
     for animal in to_spawn:
         animal.spawned = True
+        animal.shiny = random.randint(0, 100) < 10
         animal.location = random.choice(list(codes_table.keys()))
         used_targets = [_sp_animal.target for _sp_animal in  spawned_animals_table.values() if _sp_animal.target]
         animal.target = random.choice([point for point in codes_table.keys() if point != animal.location and point not in used_targets])
@@ -381,11 +383,13 @@ def handle_animal_eating(animal):
     if animal.level >= 3 and animal.evolution:
         animal.active = False
         fruit_slug = animal.fruit_slug
+        shiny = animal.shiny or False
         animal.fruit = 0
         animal.spawns = False
         animals_table[animal.slug] = animal
         active_animals_table.pop(animal.slug)
         animal = animals_table[animal.evolution]
+        animal.shiny = shiny
         animal.active = True
         animal.fruit = 0
         animal.fruit_slug = fruit_slug

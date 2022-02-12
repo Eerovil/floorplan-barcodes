@@ -150,13 +150,13 @@
             <div v-for="(player, key) in players" :id="`player-${cleanCode(key)}`" class="player"></div>
             <div id="animals">
                 <div v-for="(animal, key) in animals" :id="`animal-${cleanCode(key)}`" class="animal-wrapper">
-                    <span class="animal" :class="{[animal.slug]: true, 'vibrating': animal.close_to_timeout}" :style="{'width': `${80 + animal.level*20}px`}">
-                        <img v-if="animal.fruit" :src="`/static/${animal.slug}/animated/front_default.gif`" class="animal-img">
-                        <img v-else :src="`/static/${animal.slug}/animated/front_default.gif`" class="animal-img">
+                    <span class="animal" :class="{[animal.slug]: true, 'vibrating': animal.close_to_timeout}" :style="{'width': `${80 + animal.level*30}px`}">
+                        <img v-if="animal.fruit" :src="`/static/${animal.slug}/animated/front_${animal.shiny ? 'shiny' : 'default'}.gif`" class="animal-img">
+                        <img v-else :src="`/static/${animal.slug}/animated/front_${animal.shiny ? 'shiny' : 'default'}.gif`" class="animal-img">
 
                     </span>
                     <img class="fruit" v-for="index in animal.fruit" :key="index" :src="`/static/${animal.fruit_slug}.png`" :class="{'newFruit': (index == (animal.fruit) && animal.newFruitFrom) }">
-                    <div style="width: 100%">{{ '{{ animal.name.toUpperCase() }}' }} LEVEL {{ '{{ animal.level + 1 }}' }}</div>
+                    <div style="width: 100%"><span v-if="animal.shiny">SHINY</span> {{ '{{ animal.name.toUpperCase() }}' }} LEVEL {{ '{{ animal.level + 1 }}' }}</div>
                 </div>
             </div>
             <div if="moving-animals">
@@ -167,7 +167,7 @@
                     class="moving-animal"
                     :class="{[`moving-animal-${animal.slug}`]: true, 'vibrating': animal.close_to_timeout}"
                 >
-                    <img :src="`/static/${animal.slug}/animated/back_default.gif`" class="animal-img">
+                    <img :src="`/static/${animal.slug}/animated/back_${animal.shiny ? 'shiny' : 'default'}.gif`" class="animal-img">
                 </div>
             </div>
             <div id="evolving" v-if="evolving && evolving.from">
