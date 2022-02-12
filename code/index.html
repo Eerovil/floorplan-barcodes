@@ -7,8 +7,10 @@
     <style>
         .point {
             position: absolute;
-            width: 10px;
-            height: 10px;
+            width: 3px;
+            height: 3px;
+            background-color: #33ff0061;
+            border-radius: 50%;
         }
         .point .fruit {
             width: 40px;
@@ -191,7 +193,7 @@
                 movingAnimals: {},
                 powerups: {},
                 dragTarget: null,
-                pointSize: 25,
+                pointSize: 10,
 
                 playerWidth: 40,
 
@@ -205,6 +207,7 @@
             }),
             mounted() {
                 this.fetchTick();
+                //this.evolvingEvent('pichu', 'pikachu');
             },
             methods: {
                 xToPx(x, offset) {
@@ -380,14 +383,14 @@
                     };
                     this.evolving.progress = 0
                     const progressFunc = () => {
-                        this.evolving.progress += 1;
+                        this.evolving.progress += 3;
                         if (this.evolving.progress <= 100) {
-                            setTimeout(progressFunc, 3 * (this.evolving.progress || 0));
+                            setTimeout(progressFunc, 2 * (this.evolving.progress || 0));
                         } else {
                             this.evolving.progress = 100
                             setTimeout(() => {
                             this.evolving = null;
-                            }, 5000)
+                            }, 3000)
                         }
                     }
                     progressFunc();

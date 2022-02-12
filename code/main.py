@@ -115,7 +115,7 @@ for pokemon_name, pokemon in pokemons_table.items():
         name=pokemon_name.capitalize(),
         fruit_slug='watermelon',
         fruit=0,
-        eating_speed=random.randint(5, 9),
+        eating_speed=3,
         experience=0,
         level=0,
         start_eating=datetime.datetime.now(),
@@ -259,7 +259,7 @@ def handle_fruit_collected(point, timeout=False):
                     animal.start_eating = datetime.datetime.now()
                 animal.fruit += 1
                 if point.super_fruit or 'super_fruits' in active_powerups():
-                    animal.fruit += 4
+                    animal.fruit += 2
                 animal.last_source = point.barcode
                 animal.timeout = datetime.datetime.now() + datetime.timedelta(seconds=ANIMAL_TIMEOUT)
                 active_animals_table[animal.slug] = animal
@@ -377,10 +377,9 @@ def handle_animal_eating(animal):
         animal.start_eating = datetime.datetime.now()
         logger.info("%s ate a %s: %s left", animal.name, animal.fruit_slug, animal.fruit)
         animal.experience += 1
-    animal.level = int(animal.experience / 2)
+    animal.level = int(animal.experience)
     if animal.level >= 3 and animal.evolution:
         animal.active = False
-        fruit_overflow = animal.fruit
         fruit_slug = animal.fruit_slug
         animal.fruit = 0
         animal.spawns = False
@@ -388,7 +387,7 @@ def handle_animal_eating(animal):
         active_animals_table.pop(animal.slug)
         animal = animals_table[animal.evolution]
         animal.active = True
-        animal.fruit = fruit_overflow
+        animal.fruit = 0
         animal.fruit_slug = fruit_slug
     elif animal.level >= 6:
         active_animals_table.pop(animal.slug)
