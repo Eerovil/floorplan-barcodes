@@ -127,8 +127,8 @@
             <div id="animals">
                 <div v-for="(animal, key) in animals" :id="`animal-${cleanCode(key)}`" class="animal-wrapper">
                     <span class="animal" :class="{[animal.slug]: true}" :style="{'width': `${80 + animal.level*20}px`}">
-                        <img v-if="animal.fruit" :src="`/static/${animal.slug}_eating.gif`" class="animal-img">
-                        <img v-else :src="`/static/${animal.slug}_waiting.png`" class="animal-img">
+                        <img v-if="animal.fruit" :src="`/static/${animal.slug}/animated/front_default.gif`" class="animal-img">
+                        <img v-else :src="`/static/${animal.slug}/animated/front_default.gif`" class="animal-img">
                         <div class="level-bar">
                             <div class="level-progress" :style="{width: `${(animal.experience - (animal.level * 5)) * 20 }%`}"></div>
                         </div>
