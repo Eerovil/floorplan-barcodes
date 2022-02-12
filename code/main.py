@@ -393,7 +393,7 @@ def handle_animal_collected(animal):
     animal.fruit = 0
     animal.spawned = False
     animal.timeout = datetime.datetime.now() + datetime.timedelta(seconds=ANIMAL_TIMEOUT)
-    fruits_available = FRUIT_SLUGS
+    fruits_available = [slug for slug in FRUIT_SLUGS]
     # Check active animals and pick one fruit not used yet for this animal
     for active_animal in active_animals_table.values():
         if active_animal.active and active_animal.fruit_slug in fruits_available:
