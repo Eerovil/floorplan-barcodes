@@ -377,12 +377,14 @@ def handle_animal_eating(animal):
     if animal.level >= 3 and animal.evolution:
         animal.active = False
         fruit_overflow = animal.fruit
+        fruit_slug = animal.fruit_slug
         animal.fruit = 0
         animal.spawns = False
         active_animals_table.pop(animal.slug)
         animal = animals_table[animal.evolution]
         animal.active = True
         animal.fruit = fruit_overflow
+        animal.fruit_slug = fruit_slug
     active_animals_table[animal.slug] = animal
 
 
