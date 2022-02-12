@@ -163,11 +163,11 @@
                 <div
                     v-for="animal in movingAnimals"
                     :key="animal.slug"
-                    :style="{'top': yToPx(animal.point.y), 'left': xToPx(animal.point.x), 'width': `${pointSize}px`, 'height': `${pointSize}px`}"
+                    :style="{'top': yToPx(animal.point.y, -15), 'left': xToPx(animal.point.x, -15), 'width': `30px`, 'height': `30px`}"
                     class="moving-animal"
                     :class="{[`moving-animal-${animal.slug}`]: true, 'vibrating': animal.close_to_timeout}"
                 >
-                    <img :src="`/static/${animal.slug}/animated/front_default.gif`" class="animal-img">
+                    <img :src="`/static/${animal.slug}/animated/back_default.gif`" class="animal-img">
                 </div>
             </div>
             <div id="evolving" v-if="evolving && evolving.from">
@@ -376,6 +376,7 @@
                     }
                 },
                 evolvingEvent(from, to) {
+                    const eventSlug = from;
                     this.evolving = {
                         from: from,
                         to: to,
@@ -383,13 +384,20 @@
                     };
                     this.evolving.progress = 0
                     const progressFunc = () => {
+                        if (this.evolving.from != eventSlug) {
+                            return
+                        }
                         this.evolving.progress += 3;
                         if (this.evolving.progress <= 100) {
                             setTimeout(progressFunc, 2 * (this.evolving.progress || 0));
                         } else {
                             this.evolving.progress = 100
                             setTimeout(() => {
-                            this.evolving = null;
+                                // Prevent stuff when another event is created while this is running
+                                if (this.evolving.from != eventSlug) {
+                                    return
+                                }
+                                this.evolving = null;
                             }, 3000)
                         }
                     }
