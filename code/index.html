@@ -135,7 +135,7 @@
                         <img v-if="animal.fruit" :src="`/static/${animal.slug}/animated/front_default.gif`" class="animal-img">
                         <img v-else :src="`/static/${animal.slug}/animated/front_default.gif`" class="animal-img">
                         <div class="level-bar">
-                            <div class="level-progress" :style="{width: `${(animal.experience - (animal.level * 5)) * 20 }%`}"></div>
+                            <div class="level-progress" :style="{width: `${(animal.experience - (animal.level * 5)) * 50 }%`}"></div>
                         </div>
                     </span>
                     <img class="fruit" v-for="index in animal.fruit" :key="index" :src="`/static/${animal.fruit_slug}.png`" :class="{'newFruit': (index == (animal.fruit) && animal.newFruitFrom) }">

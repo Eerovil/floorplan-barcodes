@@ -116,12 +116,12 @@ for pokemon_name, pokemon in pokemons_table.items():
         level=0,
         start_eating=datetime.datetime.now(),
         last_source=None,
-        evolution=None,
+        evolution=pokemon.get('evolution'),
         location=None,
         target=None,
         target_time=None,
     )
-    logger.info("Loaded pokemon %s", pokemon_name)
+    logger.info("Loaded pokemon %s, evolution: %s", pokemon_name, pokemon.get('evolution'))
     
 for pokemon_name, pokemon in pokemons_table.items():
     if 'evolution' not in pokemon:
@@ -130,7 +130,7 @@ for pokemon_name, pokemon in pokemons_table.items():
         continue
     next_evolution = animals_table[pokemon['evolution']]
     next_evolution.spawns = False
-    animals_table[pokemon_name] = next_evolution
+    animals_table[pokemon['evolution']] = next_evolution
 
 FRUIT_TIMEOUT = 60
 ANIMAL_TIMEOUT = 2 * 60
@@ -297,7 +297,7 @@ def respawn_fruit(point):
             break
 
     spawn_type = "fruit"
-    point.gift = not gift_exists
+    point.gift = not gift_exists and random.randint(0, 100) < 50
     if not gift_exists:
         if random.randint(0, 100) < 50:
             if len(powerups) > 0:
@@ -325,13 +325,14 @@ def handle_animal_spawns(to_spawn):
     logger.info("Spawning %s animals", to_spawn)
     available_animals = [
         animal for animal in animals_table.values()
-        if animal.slug not in active_animals_table and animal.slug not in spawned_animals_table
+        if animal.slug not in active_animals_table and animal.slug not in spawned_animals_table and animal.spawns and animal.evolution
     ]
     to_spawn = random.choices(available_animals, k=to_spawn)
     for animal in to_spawn:
         animal.spawned = True
         animal.location = random.choice(list(codes_table.keys()))
-        animal.target = random.choice([point for point in codes_table.keys() if point != animal.location])
+        used_targets = [_sp_animal.target for _sp_animal in  spawned_animals_table.values() if _sp_animal.target]
+        animal.target = random.choice([point for point in codes_table.keys() if point != animal.location and point not in used_targets])
         animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=random.randint(10, 30))
         animal.timeout = datetime.datetime.now() + datetime.timedelta(seconds=ANIMAL_TIMEOUT)
         animals_table[animal.slug] = animal
@@ -350,7 +351,8 @@ def handle_spawned_animal(animal):
     if animal.target and animal.target_time:
         if animal.target_time < datetime.datetime.now():
             animal.location = animal.target
-            animal.target = random.choice([point for point in codes_table.keys() if point != animal.location])
+            used_targets = [_sp_animal.target for _sp_animal in  spawned_animals_table.values() if _sp_animal.target]
+            animal.target = random.choice([point for point in codes_table.keys() if point != animal.location and point not in used_targets])
             animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=random.randint(10, 30))
             spawned_animals_table[animal.slug] = animal
 
@@ -377,8 +379,8 @@ def handle_animal_eating(animal):
         fruit_overflow = animal.fruit
         animal.fruit = 0
         animal.spawns = False
-        active_animals_table[animal.slug] = animal
-        animal = active_animals_table[animal.evolution]
+        active_animals_table.pop(animal.slug)
+        animal = animals_table[animal.evolution]
         animal.active = True
         animal.fruit = fruit_overflow
     active_animals_table[animal.slug] = animal

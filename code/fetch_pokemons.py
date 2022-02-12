@@ -21,6 +21,7 @@ pokemons_table = SqliteDict(os.path.join(data_folder, 'pokemons.db'), tablename=
 def table_setter(pokemon_key, key, value):
     pokemon = pokemons_table[pokemon_key]
     pokemon[key] = value
+    logger.info("setting %s %s to %s", pokemon_key, key, value)
     pokemons_table[pokemon_key] = pokemon
 
 
@@ -63,31 +64,32 @@ for name, values in pokemons_table.items():
 
 
 # Download images
-for name, values in pokemons_table.items():
+if False:
+    for name, values in pokemons_table.items():
 
-    animated = values.get('animated', {})
-    dream_world = values.get('dream_world', {})
+        animated = values.get('animated', {})
+        dream_world = values.get('dream_world', {})
 
-    def _download(folder, image_dict):
-        # Download the images, with keys as filenames and value as url
-        # detect file extension from value
-        for key, value in image_dict.items():
-            # Skip downloading if the file already exists
-            if value is None:
-                continue
-            ext = value.split('.')[-1]
-            if os.path.exists(os.path.join(data_folder, folder, key)):
-                continue
-            resp = requests.get(value)
-            with open(os.path.join(folder, '{}.{}'.format(key, ext)), 'wb') as f:
-                f.write(resp.content)
+        def _download(folder, image_dict):
+            # Download the images, with keys as filenames and value as url
+            # detect file extension from value
+            for key, value in image_dict.items():
+                # Skip downloading if the file already exists
+                if value is None:
+                    continue
+                ext = value.split('.')[-1]
+                if os.path.exists(os.path.join(data_folder, folder, key)):
+                    continue
+                resp = requests.get(value)
+                with open(os.path.join(folder, '{}.{}'.format(key, ext)), 'wb') as f:
+                    f.write(resp.content)
 
-    os.makedirs(os.path.join(data_folder, name), exist_ok=True)
-    os.makedirs(os.path.join(data_folder, name, 'animated'), exist_ok=True)
-    _download(os.path.join(data_folder, name, 'animated'), animated)
-    os.makedirs(os.path.join(data_folder, name, 'dream_world'), exist_ok=True)
-    _download(os.path.join(data_folder, name, 'dream_world'), dream_world)
-    logger.info("Saved images for {}".format(name))
+        os.makedirs(os.path.join(data_folder, name), exist_ok=True)
+        os.makedirs(os.path.join(data_folder, name, 'animated'), exist_ok=True)
+        _download(os.path.join(data_folder, name, 'animated'), animated)
+        os.makedirs(os.path.join(data_folder, name, 'dream_world'), exist_ok=True)
+        _download(os.path.join(data_folder, name, 'dream_world'), dream_world)
+        logger.info("Saved images for {}".format(name))
 
 
 # Fetch evolution chains
@@ -97,7 +99,7 @@ for name, values in pokemons_table.items():
         logger.info("Missing evolution for {}".format(name))
         missing = True
 
-if False and missing:
+if missing:
     i = 0
     while i < 1000:
         i += 1
