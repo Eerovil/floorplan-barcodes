@@ -485,18 +485,25 @@ def find_next_in_path(barcode1, barcode2, old_location=None):
             if connection == parent:
                 continue
             if connection == barcode2:
-                return True
-            if _check_path(connection, parent=point.barcode):
-                return True
-        return False
+                return barcode_distance(_barcode, barcode2)
+            if _check_path(connection, parent=point.barcode) > 0:
+                return barcode_distance(connection, barcode2)
+        return 0
 
+    best_connection_distance = 9999
+    best_connection = None
     for connection in getattr(point1, 'connections', []):
         if connection == old_location:
             continue
         if connection == barcode2:
             return connection
-        if _check_path(connection, parent=point1.barcode):
-            return connection
+        _distance = _check_path(connection, parent=point1.barcode)
+        if _distance > 0 and _distance < best_connection_distance:
+            best_connection = connection
+            best_connection_distance = _distance
+
+    if best_connection:
+        return best_connection
 
     if old_location:
         return find_next_in_path(barcode1, barcode2, old_location=None)
