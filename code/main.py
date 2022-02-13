@@ -505,7 +505,10 @@ def find_next_in_path(barcode1, barcode2):
         return best_connection
     
     logger.warning("No path found from %s to %s", barcode1, barcode2)
-    return barcode2
+    _random_connetions = [_conn for _conn in getattr(point1, 'connections', []) if _conn != barcode1]
+    if len(_random_connetions) == 0:
+        return barcode2
+    return random.choice(_random_connetions)
 
 
 def animal_new_target(animal, old_location=None):
@@ -672,7 +675,7 @@ def game_tick():
     for key in spawned_animals:
         if spawned_animals[key]["timeout"]:
             spawned_animals[key]["close_to_timeout"] = spawned_animals[key]["timeout"] < (datetime.datetime.now() + datetime.timedelta(seconds=ANIMAL_CLOSE_TIMEOUT))
-        spawned_animals[key]["seconds_to_target"] = (spawned_animals[key]["target_time"] - datetime.datetime.now()).total_seconds()
+        spawned_animals[key]["seconds_to_target"] = ((spawned_animals[key]["target_time"] - datetime.datetime.now()).total_seconds()) + 1.0
 
     active_animals = table_to_dict(active_animals_table)
     for key in active_animals:
