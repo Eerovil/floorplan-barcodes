@@ -517,12 +517,13 @@ def animal_new_target(animal, old_location=None):
         used_real_targets.append(animal.location)
         available_targets = [_barcode for _barcode in codes_table.keys() if _barcode not in used_real_targets]
         if len(available_targets) > 0:
+            available_targets = sorted(available_targets, key=lambda _barcode: barcode_distance(animal.location, _barcode))[:3]
             animal.real_target = random.choice(available_targets)
 
     animal.target = find_next_in_path(animal.location, animal.real_target)
     distance = barcode_distance(animal.location, animal.target)
     logger.info("Animal %s new target %s, distance %s", animal.slug, animal.target, distance)
-    animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=(distance * 20))
+    animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=(distance * 5))
 
 
 def handle_animal_spawns(to_spawn):
@@ -537,7 +538,7 @@ def handle_animal_spawns(to_spawn):
         animal.shiny = random.randint(0, 100) < 10
         animal.location = random.choice(list(codes_table.keys()))
         animal_new_target(animal)
-        animal.timeout = datetime.datetime.now() + datetime.timedelta(seconds=ANIMAL_TIMEOUT)
+        animal.timeout = datetime.datetime.now() + datetime.timedelta(seconds=random.randint(60, ANIMAL_TIMEOUT))
         animals_table[animal.slug] = animal
         spawned_animals_table[animal.slug] = animal
         logger.info("Animal spawned: %s", animal.slug)
@@ -553,9 +554,19 @@ def handle_spawned_animal(animal):
 
     if animal.target and animal.target_time:
         if animal.target_time < datetime.datetime.now():
-            old_location = animal.location
-            animal.location = animal.target
-            animal_new_target(animal, old_location=old_location)
+            if animal.target == animal.real_target and animal.location != animal.target:
+                # Reached real target, stay a while
+                animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=random.randint(20, 30))
+                point = get_point(animal.target)
+                handle_fruit_collected(point, timeout=True)
+                point.fruit_timeout = animal.target_time
+                point.fruit = 'animal-{}'.format(animal.slug)
+                codes_table[point.barcode] = point
+                animal.location = animal.target
+            else:
+                old_location = animal.location
+                animal.location = animal.target
+                animal_new_target(animal, old_location=old_location)
             spawned_animals_table[animal.slug] = animal
 
 
@@ -675,7 +686,7 @@ def game_tick():
     for key in spawned_animals:
         if spawned_animals[key]["timeout"]:
             spawned_animals[key]["close_to_timeout"] = spawned_animals[key]["timeout"] < (datetime.datetime.now() + datetime.timedelta(seconds=ANIMAL_CLOSE_TIMEOUT))
-        spawned_animals[key]["seconds_to_target"] = ((spawned_animals[key]["target_time"] - datetime.datetime.now()).total_seconds()) + 3.0
+        spawned_animals[key]["seconds_to_target"] = ((spawned_animals[key]["target_time"] - datetime.datetime.now()).total_seconds()) + 2.0
 
     active_animals = table_to_dict(active_animals_table)
     for key in active_animals:

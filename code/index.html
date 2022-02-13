@@ -23,6 +23,16 @@
             height: auto;
             margin-left: -8px;
             margin-top: -21px;
+            z-index: 2;
+            position: absolute;
+        }
+        .point .grass {
+            width: 50px;
+            height: auto;
+            margin-left: -20px;
+            margin-top: -21px;
+            z-index: 1;
+            position: absolute;
         }
         .point .super-fruit {
             width: 100px !important;
@@ -125,12 +135,31 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            z-index: 10;
         }
         #shelved_animals {
             position: fixed;
+            max-width: 550px;
+            display: flex;
+            flex-wrap: wrap;
+        }
+        #shelved_animals > div {
+            white-space: break-spaces;
+            padding-right: 1rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
         }
         #shelved_animals img {
-            height: 100px;
+            width: 70px;
+            height: auto;
+        }
+        #shelved_animals.alot img {
+            width: 40px;
+        }
+        #shelved_animals.alot * {
+            font-size: 10px;
         }
     </style>
 </head>
@@ -151,7 +180,8 @@
                 @click="markPoint(point)"
                 :title="point.barcode"
             >
-                <img v-if="point.fruit" :src="`/static/${(point.gift ? 'gift' : point.fruit)}.png`" class="fruit" :class="{'super-fruit': point.super_fruit || superFruits, vibrating: point.close_to_timeout}">
+                <img v-if="!point.map_point" :src="`/static/grass.${(point.fruit || '').startsWith('animal') ? 'gif': 'png'}`" class="grass">
+                <img v-if="point.fruit && !point.fruit.startsWith('animal')" :src="`/static/${(point.gift ? 'gift' : point.fruit)}.png`" class="fruit" :class="{'super-fruit': point.super_fruit || superFruits, vibrating: point.close_to_timeout}">
             </div>
             <div v-for="(player, key) in players" :id="`player-${cleanCode(key)}`" class="player"></div>
             <div id="animals">
@@ -182,8 +212,11 @@
                 <img class="evolving-from" :style="{display: (evolving.progress == 100 || (evolving.progress % 2 == 0)) ? 'none' : 'inline'}" :src="`/static/${evolving.from}/dream_world/front_default.svg`">
                 <img class="evolving-to" :style="{display: (evolving.progress < 100 && (evolving.progress % 2 == 1)) ? 'none' : 'inline'}" :src="`/static/${evolving.to}/dream_world/front_default.svg`">
             </div>
-            <div id="shelved_animals">
-                <img v-for="animal in shelvedAnimals" :src="`/static/${animal.slug}/animated/${shelveImage}_${animal.shiny ? 'shiny' : 'default'}.gif`">
+            <div id="shelved_animals" :class="{alot: Object.values(shelvedAnimals).length > 10}">
+                <div v-for="animal in shelvedAnimals">
+                    <img :src="`/static/${animal.slug}/animated/${shelveImage}_${animal.shiny ? 'shiny' : 'default'}.gif`">
+                    <div><div v-if="animal.shiny">SHINY </div>{{ '{{ animal.name.toUpperCase() }}' }}</div>
+                </div>
             </div>
         </div>
     </script>
