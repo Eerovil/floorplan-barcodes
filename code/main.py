@@ -675,7 +675,7 @@ def game_tick():
     for key in spawned_animals:
         if spawned_animals[key]["timeout"]:
             spawned_animals[key]["close_to_timeout"] = spawned_animals[key]["timeout"] < (datetime.datetime.now() + datetime.timedelta(seconds=ANIMAL_CLOSE_TIMEOUT))
-        spawned_animals[key]["seconds_to_target"] = ((spawned_animals[key]["target_time"] - datetime.datetime.now()).total_seconds()) + 1.0
+        spawned_animals[key]["seconds_to_target"] = ((spawned_animals[key]["target_time"] - datetime.datetime.now()).total_seconds()) + 3.0
 
     active_animals = table_to_dict(active_animals_table)
     for key in active_animals:
