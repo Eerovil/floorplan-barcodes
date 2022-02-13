@@ -12,6 +12,9 @@
             background-color: #33ff0061;
             border-radius: 50%;
         }
+        .map-point {
+            background-color: #0400ff !important;
+        }
         .point .fruit {
             width: 40px;
             height: auto;
@@ -43,7 +46,7 @@
         }
 
         .player {
-            display: none;
+            display: none !important;
             position: absolute;
             width: 40px;
             height: 40px;
@@ -57,7 +60,6 @@
             height: auto !important;
         }
         #svg-el {
-            display: none;
             position: absolute;
             top: 0;
             left: 0;
@@ -140,6 +142,7 @@
                 v-for="point in points"
                 :id="`point-${cleanCode(point.barcode)}`"
                 class="point"
+                :class="{'map-point': point.map_point}"
                 :style="{'top': yToPx(point.y), 'left': xToPx(point.x), 'width': `${pointSize}px`, 'height': `${pointSize}px`}"
                 @mousedown="dragStart($event, point)"
                 @click="markPoint(point)"
@@ -203,11 +206,30 @@
                     progress: null,
                     from: null,
                     to: null,
-                }
+                },
+
+                selectedPoint: null,
+                modifyMap: false,
+                showMap: false,
             }),
             mounted() {
-                this.fetchTick();
                 //this.evolvingEvent('pichu', 'pikachu');
+                let entries = new URLSearchParams(window.location.search);
+                const result = {}
+                for(const [key, value] of entries) { // each 'entry' is a [key, value] tupple
+                    result[key] = value;
+                }
+                
+                if (result.addMap == '1') {
+                    document.onclick = this.addMapPoint
+                }
+                if (result.modifyMap == '1') {
+                    this.modifyMap = true
+                }
+                if (result.showMap == '1') {
+                    this.showMap = true
+                }
+                this.fetchTick();
             },
             methods: {
                 xToPx(x, offset) {
@@ -240,6 +262,9 @@
                             this.handleMovingAnimals(response.data.spawned_animals)
                             this.handleAnimals(response.data.animals)
                             this.handlePlayers();
+                            if (this.modifyMap || this.showMap) {
+                                this.drawMap()
+                            }
                         })
                         .catch(error => {
                             console.log(error);
@@ -264,6 +289,13 @@
                 dragEnd() {
                     const target = this.dragTarget;
                     this.dragTarget = null;
+                    if (this.modifyMap) {
+                        if (this.selectedPoint) {
+                            this.connectPoints(this.selectedPoint, target.barcode);
+                        } else {
+                            this.selectedPoint = target.barcode
+                        }
+                    }
                     document.onmouseup = null;
                     document.onmousemove = null;
                     axios.post('/api/modify', {barcode: target.barcode, x: target.x, y: target.y})
@@ -274,6 +306,24 @@
                             console.log(error);
                         });
                 },
+                connectPoints(barcode1, barcode2) {
+                    this.selectedPoint = null;
+                    axios.post('/api/connect', {barcode1: barcode1, barcode2: barcode2})
+                        .then(response => {
+                            console.log(response.data);
+                        })
+                        .catch(error => {
+                            console.log(error);
+                        });
+                },
+                drawMap() {
+                    this.$refs.svg.innerHTML = '';
+                    for (const point of Object.values(this.points)) {
+                        for (const connection of (point.connections || [])) {
+                            this.drawLine(point.barcode, connection);
+                        }
+                    }
+                },
                 updateDragTarget(event) {
                     event = event || window.event;
                     event.preventDefault();
@@ -281,6 +331,25 @@
                     this.dragTarget.x = (event.clientX - this.pointSize / 2) / this.imgEl.width;
                     this.dragTarget.y = (event.clientY - this.pointSize / 2) / this.imgEl.height;
                     console.log(this.dragTarget)
+                },
+                addMapPoint(event) {
+                    event = event || window.event;
+                    if (event) {
+                        event.preventDefault();
+                    }
+                    const newPoint = {
+                        x: (event.clientX - this.pointSize / 2) / this.imgEl.width,
+                        y: (event.clientY - this.pointSize / 2) / this.imgEl.height,
+                        barcode: 'map-point-' + Object.values(this.points).length,
+                    };
+                    
+                    axios.post('/api/add', {barcode: newPoint.barcode, x: newPoint.x, y: newPoint.y})
+                        .then(response => {
+                            console.log(response.data);
+                        })
+                        .catch(error => {
+                            console.log(error);
+                        });
                 },
                 handlePlayers() {
                     // Allow vue to render the player elements, wait a tick

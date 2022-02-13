@@ -26,6 +26,8 @@ spawned_animals_table = SqliteDict(os.path.join(data_folder, 'progress.db'), tab
 shelved_animals_table = SqliteDict(os.path.join(data_folder, 'progress.db'), tablename="shelved_animals", autocommit=True)
 powerups_table = SqliteDict(os.path.join(data_folder, 'progress.db'), tablename="powerups", autocommit=True)
 
+maps_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="maps", autocommit=True)
+
 pokemons_table = SqliteDict(os.path.join(data_folder, 'pokemons.db'), tablename="pokemons", autocommit=False)
 
 FRUIT_SLUGS = ['watermelon', 'carrot', 'apple', 'sandvich']
@@ -46,7 +48,8 @@ class Animal(BaseModel):
     last_source: Optional[str]  # Where this animal last received a fruit from
     evolution: Optional[str]  # Slug of the animal that this animal evolves into
     location: Optional[str]  # Slug of the point where this animal is currently located
-    target: Optional[str]  # Slug of the point where this animal is going
+    target: Optional[str]  # Slug of the point or map point where this animal is going
+    real_target: Optional[str]  # Slug of the point where this animal is going
     target_time: Optional[datetime.datetime]  # When this animal is going to reach its target
     timeout: Optional[datetime.datetime]  # When this animal is going to be removed from the game
     shiny = False
@@ -70,6 +73,7 @@ class Point(BaseModel):
     fruit_timeout: Optional[datetime.datetime]
     close_to_timeout = False
     gift = False
+    connections = []
 
 
 class Powerup(BaseModel):
@@ -179,11 +183,71 @@ for initial_code in INITIAL_CODES:
         codes_table[initial_code] = _init_row(initial_code)
 
 
+def get_point(barcode):
+    point = codes_table.get(barcode)
+    if not point:
+        point = maps_table.get(barcode)
+    return point
+
+
+for key in list(codes_table.keys()):
+    if 'map-' in key:
+        del codes_table[key]
+
+
+for key in list(maps_table.keys()):
+    if 'map-' not in key:
+        del maps_table[key]
+
+
 for key, point in codes_table.items():
     point.fruit_death = datetime.datetime.now() - datetime.timedelta(days=1)
     point.fruit_timeout = datetime.datetime.now()
+    point.connections = getattr(point, 'connections', [])
     point.gift = False
+    missing_connections = set()
+    for connection in point.connections:
+        if connection == key:
+            continue
+        connected_point = get_point(connection)
+        if not connected_point:
+            missing_connections.add(connection)
+            continue
+        if key not in connected_point.connections:
+            connected_point.connections.append(key)
+            if connection in codes_table:
+                codes_table[connection] = connected_point
+            else:
+                maps_table[connection] = connected_point
+    for connection in missing_connections:
+        point.connections.remove(connection)
     codes_table[key] = point
+
+
+for key, point in maps_table.items():
+    point.connections = getattr(point, 'connections', [])
+    missing_connections = set()
+    for connection in point.connections:
+        if connection == key:
+            continue
+        connected_point = get_point(connection)
+        if not connected_point:
+            missing_connections.add(connection)
+            continue
+        if key not in connected_point.connections:
+            connected_point.connections.append(key)
+            if connection in codes_table:
+                codes_table[connection] = connected_point
+            else:
+                maps_table[connection] = connected_point
+
+    for connection in missing_connections:
+        point.connections.remove(connection)
+    maps_table[key] = point
+
+
+logger.info("codes_table: %s", len(codes_table))
+logger.info("maps_table: %s", len(maps_table))
 
 
 @app.route("/")
@@ -196,11 +260,74 @@ def add_barcode():
     barcode = request.json.get('barcode')
     if not barcode:
         return 'No barcode provided'
-    if 'koodi' not in barcode:
+    is_map = False
+    if 'map-' in barcode:
+        is_map = True
+    elif 'koodi' not in barcode:
         return 'No koodi provided'
     row = _init_row()
     row.barcode = barcode
-    codes_table[barcode] = row
+    if is_map:
+        row.x = request.json.get('x', 0.1)
+        row.y = request.json.get('y', 0.1)
+        maps_table[barcode] = row
+    else:
+        codes_table[barcode] = row
+    return 'ok'
+
+
+@app.route("/api/connect", methods=['POST'])
+def connect_barcodes():
+    barcode1 = request.json.get('barcode1')
+    barcode2 = request.json.get('barcode2')
+    if not barcode1 or not barcode2:
+        return 'No barcode provided'
+    
+    # handle barcode1
+    barcode1_is_map = False
+    if barcode1 not in codes_table:
+        barcode1_is_map = True
+        if barcode1 not in maps_table:
+            return 'No barcode1 found anywhere'
+
+    barcode2_is_map = False
+    if barcode2 not in codes_table:
+        barcode2_is_map = True
+        if barcode2 not in maps_table:
+            return 'No barcode2 found anywhere'
+
+    if barcode1_is_map:
+        table = maps_table
+    else:
+        table = codes_table
+
+    code1 = table[barcode1]
+    code1.connections = getattr(code1, 'connections', None) or []
+
+    to_remove = False
+    if barcode2 in code1.connections:
+        to_remove = True
+        code1.connections = [x for x in code1.connections if x != barcode2]
+    else:
+        code1.connections.append(barcode2)
+        code1.connections = [_code for _code in set(code1.connections) if _code != barcode1]
+    table[barcode1] = code1
+
+    if barcode2_is_map:
+        table = maps_table
+    else:
+        table = codes_table
+
+    code2 = table[barcode2]
+    code2.connections = getattr(code2, 'connections', None) or []
+
+    if to_remove:
+        code2.connections = [x for x in code2.connections if x != barcode1]
+    else:
+        code2.connections.append(barcode1)
+        code2.connections = [_code for _code in set(code2.connections) if _code != barcode2]
+    table[barcode2] = code2
+    
     return 'ok'
 
 
@@ -213,14 +340,21 @@ def modify_barcode():
     y = request.json.get('y')
     name = request.json.get('name')
     row = codes_table.get(barcode)
+    is_map = False
     if not row:
-        return 'error'
+        row = maps_table.get(barcode)
+        is_map = True
+        if not row:
+            return 'error'
     row.x = x
     row.y = y
     if name:
         row.name = name
-    codes_table[barcode] = row
-    return 'ok'
+    if is_map:
+        maps_table[barcode] = row
+    else:
+        codes_table[barcode] = row
+    return 'ok (is_map: %s)' % is_map
 
 
 def distance(x1, y1, x2, y2):
@@ -326,6 +460,65 @@ def respawn_fruit(point):
     codes_table[point.barcode] = point
 
 
+def barcode_distance(barcode1, barcode2):
+    point1 = get_point(barcode1)
+    point2 = get_point(barcode2)
+    if not point1 or not point2:
+        return 0
+    return distance(point1.x, point1.y, point2.x, point2.y)
+
+
+def find_next_in_path(barcode1, barcode2, old_location=None):
+    logger.info("Finding next in path: %s -> %s, old_location: %s", barcode1, barcode2, old_location)
+    point1 = get_point(barcode1)
+    checked_points = set()
+    
+    def _check_path(_barcode, parent):
+        if _barcode in checked_points:
+            return False
+        point = get_point(_barcode)
+        checked_points.add(_barcode)
+        # logger.info("Checking path %s with connections %s", _barcode, point.connections)
+        for connection in getattr(point, 'connections', []):
+            if connection == old_location:
+                continue
+            if connection == parent:
+                continue
+            if connection == barcode2:
+                return True
+            if _check_path(connection, parent=point.barcode):
+                return True
+        return False
+
+    for connection in getattr(point1, 'connections', []):
+        if connection == old_location:
+            continue
+        if connection == barcode2:
+            return connection
+        if _check_path(connection, parent=point1.barcode):
+            return connection
+
+    if old_location:
+        return find_next_in_path(barcode1, barcode2, old_location=None)
+    
+    logger.warning("No path found from %s to %s", barcode1, barcode2)
+    return barcode2
+
+
+def animal_new_target(animal, old_location=None):
+    if animal.location in codes_table:
+        used_real_targets = [_sp_animal.real_target for _sp_animal in  spawned_animals_table.values() if _sp_animal.real_target]
+        used_real_targets.append(animal.location)
+        available_targets = [_barcode for _barcode in codes_table.keys() if _barcode not in used_real_targets]
+        if len(available_targets) > 0:
+            animal.real_target = random.choice(available_targets)
+
+    animal.target = find_next_in_path(animal.location, animal.real_target, old_location=old_location)
+    distance = barcode_distance(animal.location, animal.target)
+    logger.info("Animal %s new target %s, distance %s", animal.slug, animal.target, distance)
+    animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=(distance * 20))
+
+
 def handle_animal_spawns(to_spawn):
     logger.info("Spawning %s animals", to_spawn)
     available_animals = [
@@ -337,9 +530,7 @@ def handle_animal_spawns(to_spawn):
         animal.spawned = True
         animal.shiny = random.randint(0, 100) < 10
         animal.location = random.choice(list(codes_table.keys()))
-        used_targets = [_sp_animal.target for _sp_animal in  spawned_animals_table.values() if _sp_animal.target]
-        animal.target = random.choice([point for point in codes_table.keys() if point != animal.location and point not in used_targets])
-        animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=random.randint(20, 40))
+        animal_new_target(animal)
         animal.timeout = datetime.datetime.now() + datetime.timedelta(seconds=ANIMAL_TIMEOUT)
         animals_table[animal.slug] = animal
         spawned_animals_table[animal.slug] = animal
@@ -356,10 +547,9 @@ def handle_spawned_animal(animal):
 
     if animal.target and animal.target_time:
         if animal.target_time < datetime.datetime.now():
+            old_location = animal.location
             animal.location = animal.target
-            used_targets = [_sp_animal.target for _sp_animal in  spawned_animals_table.values() if _sp_animal.target]
-            animal.target = random.choice([point for point in codes_table.keys() if point != animal.location and point not in used_targets])
-            animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=random.randint(10, 30))
+            animal_new_target(animal, old_location=old_location)
             spawned_animals_table[animal.slug] = animal
 
 
@@ -463,11 +653,16 @@ def game_tick():
     for key in codes:
         codes[key]["close_to_timeout"] = codes[key]["fruit_timeout"] < (datetime.datetime.now() + datetime.timedelta(seconds=15))
 
+    maps = table_to_dict(maps_table)
+    for key in maps:
+        codes[key] = maps[key]
+        codes[key]['map_point'] = True
+
     spawned_animals = table_to_dict(spawned_animals_table)
     for key in spawned_animals:
         if spawned_animals[key]["timeout"]:
             spawned_animals[key]["close_to_timeout"] = spawned_animals[key]["timeout"] < (datetime.datetime.now() + datetime.timedelta(seconds=ANIMAL_CLOSE_TIMEOUT))
-        spawned_animals[key]["seconds_to_target"] = (spawned_animals[key]["target_time"] - datetime.datetime.now()).seconds
+        spawned_animals[key]["seconds_to_target"] = (spawned_animals[key]["target_time"] - datetime.datetime.now()).total_seconds()
 
     active_animals = table_to_dict(active_animals_table)
     for key in active_animals:
@@ -529,7 +724,7 @@ def mark_barcodes():
         handle_fruit_collected(point)
 
     for key, animal in spawned_animals_table.items():
-        if animal.target == point.barcode:
+        if animal.real_target == point.barcode:
             handle_animal_collected(animal)
             ret += ' sait kiinni pokemonin ' + animal.name + '!'
 
