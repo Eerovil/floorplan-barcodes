@@ -486,8 +486,9 @@ def find_next_in_path(barcode1, barcode2, old_location=None):
                 continue
             if connection == barcode2:
                 return barcode_distance(_barcode, barcode2)
-            if _check_path(connection, parent=point.barcode) > 0:
-                return barcode_distance(connection, barcode2)
+            _distance = _check_path(connection, parent=point.barcode)
+            if _distance > 0:
+                return _distance + barcode_distance(connection, barcode2)
         return 0
 
     best_connection_distance = 9999
