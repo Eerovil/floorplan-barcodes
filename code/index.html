@@ -13,9 +13,11 @@
             border-radius: 50%;
         }
         .map-point {
-            display: none;
             background-color: #0400ff !important;
         }
+        .map-point-hidden {
+            display: none;
+        },
         .point .fruit {
             width: 40px;
             height: auto;
@@ -143,7 +145,7 @@
                 v-for="point in points"
                 :id="`point-${cleanCode(point.barcode)}`"
                 class="point"
-                :class="{'map-point': point.map_point}"
+                :class="{'map-point': point.map_point, 'map-point-hidden': !mapVisible}"
                 :style="{'top': yToPx(point.y), 'left': xToPx(point.x), 'width': `${pointSize}px`, 'height': `${pointSize}px`}"
                 @mousedown="dragStart($event, point)"
                 @click="markPoint(point)"
@@ -210,6 +212,7 @@
                 },
 
                 selectedPoint: null,
+                addMap: false,
                 modifyMap: false,
                 showMap: false,
             }),
@@ -223,6 +226,7 @@
                 
                 if (result.addMap == '1') {
                     document.onclick = this.addMapPoint
+                    this.addMap = true;
                 }
                 if (result.modifyMap == '1') {
                     this.modifyMap = true
@@ -485,7 +489,10 @@
                         }
                     }
                     return false;
-                }
+                },
+                mapVisible() {
+                    return this.showMap || this.modifyMap || this.addMap;
+                },
             }
         });
     </script>

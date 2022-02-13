@@ -468,7 +468,7 @@ def barcode_distance(barcode1, barcode2):
     return distance(point1.x, point1.y, point2.x, point2.y)
 
 
-def find_next_in_path(barcode1, barcode2, old_location=None):
+def find_next_in_path(barcode1, barcode2):
     point1 = get_point(barcode1)
     
     def _check_path(_barcode, parent, checked_points=None):
@@ -479,8 +479,6 @@ def find_next_in_path(barcode1, barcode2, old_location=None):
         checked_points.add(_barcode)
         # logger.info("Checking path %s with connections %s", _barcode, point.connections)
         for connection in getattr(point, 'connections', []):
-            if connection == old_location:
-                continue
             if connection == parent:
                 continue
             if connection == barcode2:
@@ -493,8 +491,6 @@ def find_next_in_path(barcode1, barcode2, old_location=None):
     best_connection_distance = 9999
     best_connection = None
     for connection in getattr(point1, 'connections', []):
-        if connection == old_location:
-            continue
         if connection == barcode2:
             return connection
         _distance = _check_path(connection, parent=point1.barcode)
@@ -506,9 +502,6 @@ def find_next_in_path(barcode1, barcode2, old_location=None):
 
     if best_connection:
         return best_connection
-
-    if old_location:
-        return find_next_in_path(barcode1, barcode2, old_location=None)
     
     logger.warning("No path found from %s to %s", barcode1, barcode2)
     return barcode2
@@ -522,7 +515,7 @@ def animal_new_target(animal, old_location=None):
         if len(available_targets) > 0:
             animal.real_target = random.choice(available_targets)
 
-    animal.target = find_next_in_path(animal.location, animal.real_target, old_location=old_location)
+    animal.target = find_next_in_path(animal.location, animal.real_target)
     distance = barcode_distance(animal.location, animal.target)
     logger.info("Animal %s new target %s, distance %s", animal.slug, animal.target, distance)
     animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=(distance * 20))
