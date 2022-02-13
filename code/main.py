@@ -32,6 +32,7 @@ pokemons_table = SqliteDict(os.path.join(data_folder, 'pokemons.db'), tablename=
 
 FRUIT_SLUGS = ['watermelon', 'carrot', 'apple', 'sandvich']
 
+main_table['last_tick'] = datetime.datetime.now()
 
 class Animal(BaseModel):
     active = False
@@ -490,14 +491,14 @@ def find_next_in_path(barcode1, barcode2):
 
     best_connection_distance = 9999
     best_connection = None
-    for connection in getattr(point1, 'connections', []):
-        if connection == barcode2:
-            return connection
-        _distance = _check_path(connection, parent=point1.barcode)
+    for main_connection in getattr(point1, 'connections', []):
+        if main_connection == barcode2:
+            return main_connection
+        _distance = _check_path(main_connection, parent=point1.barcode)
         if _distance > 0:
-            _distance += barcode_distance(barcode1, connection)
+            _distance += barcode_distance(barcode1, main_connection)
         if _distance > 0 and _distance < best_connection_distance:
-            best_connection = connection
+            best_connection = main_connection
             best_connection_distance = _distance
 
     if best_connection:
@@ -618,38 +619,45 @@ def table_to_dict(_dict):
 
 @app.route("/api/tick")
 def game_tick():
-    for key, point in codes_table.items():
-        if point.fruit and point.fruit_timeout < datetime.datetime.now():
-            handle_fruit_collected(point, timeout=True)
-        if point.fruit:
-            continue
-        if not point.fruit_death or point.fruit_death < (datetime.datetime.now() - datetime.timedelta(seconds=90)):
-            respawn_fruit(point)
+    tick_enabled = True
+    if main_table['last_tick'] and main_table['last_tick'] > datetime.datetime.now() - datetime.timedelta(seconds=1):
+        tick_enabled = False
+    else:
+        main_table['last_tick'] = datetime.datetime.now()
 
-    for key, powerup in powerups_table.items():
-        if powerup.active and powerup.start_time + datetime.timedelta(seconds=powerup.duration) < datetime.datetime.now():
-            powerup.active = False
-            powerups_table[key] = powerup
-            logger.info("Powerup %s expired", powerup.slug)
+    if tick_enabled:
+        for key, point in codes_table.items():
+            if point.fruit and point.fruit_timeout < datetime.datetime.now():
+                handle_fruit_collected(point, timeout=True)
+            if point.fruit:
+                continue
+            if not point.fruit_death or point.fruit_death < (datetime.datetime.now() - datetime.timedelta(seconds=90)):
+                respawn_fruit(point)
 
-    for key, animal in active_animals_table.items():
-        handle_animal_eating(animal)
+        for key, powerup in powerups_table.items():
+            if powerup.active and powerup.start_time + datetime.timedelta(seconds=powerup.duration) < datetime.datetime.now():
+                powerup.active = False
+                powerups_table[key] = powerup
+                logger.info("Powerup %s expired", powerup.slug)
 
-    for key, animal in spawned_animals_table.items():
-        handle_spawned_animal(animal)
+        for key, animal in active_animals_table.items():
+            handle_animal_eating(animal)
 
-    animal_to_spawn = 4 - len(spawned_animals_table) - len(active_animals_table)
-    if animal_to_spawn > 0:
-        handle_animal_spawns(animal_to_spawn)
+        for key, animal in spawned_animals_table.items():
+            handle_spawned_animal(animal)
+
+        animal_to_spawn = 4 - len(spawned_animals_table) - len(active_animals_table)
+        if animal_to_spawn > 0:
+            handle_animal_spawns(animal_to_spawn)
 
 
-    dead_players = []
-    for key, player in players_table.items():
-        if not player.last_seen or (player.last_seen < datetime.datetime.now() - datetime.timedelta(minutes=10)):
-            dead_players.append(key)
+        dead_players = []
+        for key, player in players_table.items():
+            if not player.last_seen or (player.last_seen < datetime.datetime.now() - datetime.timedelta(minutes=10)):
+                dead_players.append(key)
 
-    for key in dead_players:
-        del players_table[key]
+        for key in dead_players:
+            del players_table[key]
 
     codes = table_to_dict(codes_table)
     for key in codes:
