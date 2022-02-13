@@ -576,7 +576,7 @@ def handle_animal_eating(animal):
         logger.info("%s ate a %s: %s left", animal.name, animal.fruit_slug, animal.fruit)
         animal.experience += 1
     animal.level = int(animal.experience)
-    if animal.level >= 3 and animal.evolution:
+    if animal.level >= 2 and animal.evolution:
         animal.active = False
         fruit_slug = animal.fruit_slug
         shiny = animal.shiny or False
@@ -589,7 +589,7 @@ def handle_animal_eating(animal):
         animal.active = True
         animal.fruit = 0
         animal.fruit_slug = fruit_slug
-    elif animal.level >= 6:
+    elif animal.level >= 3:
         active_animals_table.pop(animal.slug)
         shelved_animals_table[animal.slug] = animal
         animal.spawns = False
