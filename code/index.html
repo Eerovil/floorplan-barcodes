@@ -183,7 +183,7 @@
                 <img class="evolving-to" :style="{display: (evolving.progress < 100 && (evolving.progress % 2 == 1)) ? 'none' : 'inline'}" :src="`/static/${evolving.to}/dream_world/front_default.svg`">
             </div>
             <div id="shelved_animals">
-                <img v-for="animal in shelvedAnimals" :src="`/static/${animal.slug}/dream_world/front_default.svg`">
+                <img v-for="animal in shelvedAnimals" :src="`/static/${animal.slug}/animated/${shelveImage}_${animal.shiny ? 'shiny' : 'default'}.gif`">
             </div>
         </div>
     </script>
@@ -215,6 +215,8 @@
                 addMap: false,
                 modifyMap: false,
                 showMap: false,
+
+                shelveImage: 'front',
             }),
             mounted() {
                 //this.evolvingEvent('pichu', 'pikachu');
@@ -235,6 +237,13 @@
                     this.showMap = true
                 }
                 this.fetchTick();
+                setInterval(() => {
+                    if (this.shelveImage == 'front') {
+                        this.shelveImage = 'back'
+                    } else {
+                        this.shelveImage = 'front'
+                    }
+                }, 5000);
             },
             methods: {
                 xToPx(x, offset) {
