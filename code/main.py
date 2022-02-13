@@ -734,7 +734,7 @@ def mark_barcodes():
     ret = 'Ruokaa ei löytynyt'
     if point.fruit:
         ret = 'Hyvä, löysit '
-        if point.super_fruit:
+        if point.super_fruit or 'super_fruits' in active_powerups():
             ret += 'ison '
         if point.fruit == 'watermelon':
             ret += 'vesimelonin!'
@@ -747,7 +747,7 @@ def mark_barcodes():
         elif point.fruit == 'super_fruits':
             ret += 'pullon! Kaikki hedelmät on isoja!'
         else:
-            ret += point.fruit + '!'
+            ret = ""
 
     if point.fruit:
         handle_fruit_collected(point)
