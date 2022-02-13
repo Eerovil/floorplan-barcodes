@@ -471,11 +471,11 @@ def barcode_distance(barcode1, barcode2):
 def find_next_in_path(barcode1, barcode2, old_location=None):
     logger.info("Finding next in path: %s -> %s, old_location: %s", barcode1, barcode2, old_location)
     point1 = get_point(barcode1)
-    checked_points = set()
     
-    def _check_path(_barcode, parent):
+    def _check_path(_barcode, parent, checked_points=None):
+        checked_points = checked_points or set()
         if _barcode in checked_points:
-            return False
+            return 0
         point = get_point(_barcode)
         checked_points.add(_barcode)
         # logger.info("Checking path %s with connections %s", _barcode, point.connections)
@@ -486,9 +486,9 @@ def find_next_in_path(barcode1, barcode2, old_location=None):
                 continue
             if connection == barcode2:
                 return barcode_distance(_barcode, barcode2)
-            _distance = _check_path(connection, parent=point.barcode)
+            _distance = _check_path(connection, parent=point.barcode, checked_points=checked_points)
             if _distance > 0:
-                return _distance + barcode_distance(connection, barcode2)
+                return _distance + barcode_distance(_barcode, connection)
         return 0
 
     best_connection_distance = 9999
@@ -499,6 +499,9 @@ def find_next_in_path(barcode1, barcode2, old_location=None):
         if connection == barcode2:
             return connection
         _distance = _check_path(connection, parent=point1.barcode)
+        if _distance > 0:
+            _distance += barcode_distance(barcode1, connection)
+        logger.info("Connection %s distance: %s", connection, _distance)
         if _distance > 0 and _distance < best_connection_distance:
             best_connection = connection
             best_connection_distance = _distance
