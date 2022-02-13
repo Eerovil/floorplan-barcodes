@@ -256,6 +256,11 @@ def hello_world():
     return render_template("index.html", title = 'App')
 
 
+@app.route("/client")
+def client_html():
+    return render_template("client.html", title = 'App')
+
+
 @app.route("/api/add", methods=['POST'])
 def add_barcode():
     barcode = request.json.get('barcode')

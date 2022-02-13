@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Instascan</title>
+    <script type="text/javascript" src="/static/instascan.min.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <style>
+      html {
+        height: 100%;
+      }
+      body {
+        text-align: center;
+        height: 100%;
+      }
+      video {
+        width: 130%;
+        height: auto;
+      }
+      #iframe-wrapper {
+        position: relative;
+      }
+      iframe {
+        position: absolute;
+        height: 50vh;
+        width: 130%;
+        top: 5rem;
+        left: 0;
+      }
+      #wrapper {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="wrapper">
+      <div id="iframe-wrapper">
+        <iframe src="/"></iframe>
+      </div>
+      <video id="preview"></video>
+    </div>
+    <script type="text/javascript">
+      let scanner = new Instascan.Scanner({ video: document.getElementById('preview') });
+      scanner.addListener('scan', function (content) {
+        axios.post('/api/mark', {barcode: content})
+        console.log(content);
+      });
+      Instascan.Camera.getCameras().then(function (cameras) {
+        if (cameras.length > 0) {
+          scanner.start(cameras[0]);
+        } else {
+          console.error('No cameras found.');
+        }
+      }).catch(function (e) {
+        console.error(e);
+      });
+    </script>
+  </body>
+</html>
