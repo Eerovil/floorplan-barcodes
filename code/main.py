@@ -623,7 +623,7 @@ def table_to_dict(_dict):
 @app.route("/api/tick")
 def game_tick():
     tick_enabled = True
-    if main_table['last_tick'] and main_table['last_tick'] > datetime.datetime.now() - datetime.timedelta(seconds=1):
+    if main_table['last_tick'] and main_table['last_tick'] > datetime.datetime.now() - datetime.timedelta(seconds=5):
         tick_enabled = False
     else:
         main_table['last_tick'] = datetime.datetime.now()
