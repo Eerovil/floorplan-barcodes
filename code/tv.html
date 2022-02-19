@@ -1,0 +1,542 @@
+<html>
+<head>
+    <title>Vue.js</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+
+    <style>
+        .point {
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            background-color: #33ff0061;
+            border-radius: 50%;
+        }
+        .map-point {
+            background-color: #0400ff !important;
+        }
+        .map-point-hidden {
+            display: none;
+        }
+        .point .fruit {
+            width: 40px;
+            height: auto;
+            margin-left: -8px;
+            margin-top: -21px;
+            z-index: 2;
+            position: absolute;
+        }
+        .point .grass {
+            width: 50px;
+            height: auto;
+            margin-left: -20px;
+            margin-top: -21px;
+            z-index: 1;
+            position: absolute;
+        }
+        .point .super-fruit {
+            width: 100px !important;
+            height: auto;
+            margin-left: -38px;
+            margin-top: -62px;
+        }
+        .vibrating {
+            animation: shake 0.5s;
+            animation-iteration-count: infinite;
+        }
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+
+        .player {
+            display: none !important;
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+        }
+        img {
+            height: 100%;
+        }
+        img.newFruit {
+            position: absolute;
+            height: auto !important;
+        }
+        #svg-el {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        #wrapper {
+            display: flex;
+        }
+        .moving-animal {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+        }
+        #animals {
+            width: 100%;
+            background-color: white;
+        }
+        #animals .fruit {
+            width: 40px;
+        }
+        #animals .animal-wrapper {
+            display: flex;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+        #animals .animal {
+            display: flex;
+            width: 80px;
+            height: auto;
+            flex-direction: column;
+            transition: all 2s;
+        }
+        #animals .animal-img {
+            width: 100%;
+            height: auto;
+            transition: all 2s;
+        }
+        #animals .mouse .animal-img {
+            transform: scaleX(-1);
+        }
+        #animals .bunny .animal-img {
+            transform: scaleX(-1);
+        }
+        #animals .level-bar {
+            width: 100%;
+            background-color: #fafafa;
+        }
+        #animals .level-progress {
+            width: 10%;
+            height: 5px;
+            background-color: green;
+        }
+        #evolving {
+            width: 100%;
+            height: 100%;
+            background-color: white;
+            position: fixed;
+            text-transform: uppercase;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 10;
+        }
+        #shelved_animals {
+            position: fixed;
+            max-width: 550px;
+            display: flex;
+            flex-wrap: wrap;
+        }
+        #shelved_animals > div {
+            white-space: break-spaces;
+            padding-right: 1rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+        #shelved_animals img {
+            width: 70px;
+            height: auto;
+        }
+        #shelved_animals.alot img {
+            width: 40px;
+        }
+        #shelved_animals.alot * {
+            font-size: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="vue-app">
+    </div>
+    <script type="template/html" id="template">
+        <div id="wrapper">
+            <img ref="img" src="/static/floorplan.jpg"></img>
+            <svg ref="svg" id="svg-el"></svg>
+            <div
+                v-for="point in points"
+                :id="`point-${cleanCode(point.barcode)}`"
+                class="point"
+                :class="{'map-point': point.map_point, 'map-point-hidden': (point.map_point && !mapVisible)}"
+                :style="{'top': yToPx(point.y), 'left': xToPx(point.x), 'width': `${pointSize}px`, 'height': `${pointSize}px`}"
+                @mousedown="dragStart($event, point)"
+                @click="markPoint(point)"
+                :title="point.barcode"
+            >
+                <img v-if="!point.map_point" :src="`/static/grass.${(point.fruit || '').startsWith('animal') ? 'gif': 'png'}`" class="grass">
+                <img v-if="point.fruit && !point.fruit.startsWith('animal')" :src="`/static/${(point.gift ? 'gift' : point.fruit)}.png`" class="fruit" :class="{'super-fruit': point.super_fruit || superFruits, vibrating: point.close_to_timeout}">
+            </div>
+            <div v-for="(player, key) in players" :id="`player-${cleanCode(key)}`" class="player"></div>
+            <div id="animals">
+                <div v-for="(animal, key) in animals" :id="`animal-${cleanCode(key)}`" class="animal-wrapper">
+                    <span class="animal" :class="{[animal.slug]: true, 'vibrating': animal.close_to_timeout}" :style="{'width': `${80 + animal.level*30}px`}">
+                        <img v-if="animal.fruit" :src="`/static/${animal.slug}/animated/front_${animal.shiny ? 'shiny' : 'default'}.gif`" class="animal-img">
+                        <img v-else :src="`/static/${animal.slug}/animated/front_${animal.shiny ? 'shiny' : 'default'}.gif`" class="animal-img">
+
+                    </span>
+                    <img class="fruit" v-for="index in animal.fruit" :key="index" :src="`/static/${animal.fruit_slug}.png`" :class="{'newFruit': (index == (animal.fruit) && animal.newFruitFrom) }">
+                    <div style="width: 100%"><span v-if="animal.shiny">SHINY</span> {{ '{{ animal.name.toUpperCase() }}' }} LEVEL {{ '{{ animal.level + 1 }}' }}</div>
+                </div>
+            </div>
+            <div if="moving-animals">
+                <div
+                    v-for="animal in movingAnimals"
+                    :key="animal.slug"
+                    :style="{'top': yToPx(animal.point.y, -15), 'left': xToPx(animal.point.x, -15), 'width': `30px`, 'height': `30px`}"
+                    class="moving-animal"
+                    :class="{[`moving-animal-${animal.slug}`]: true, 'vibrating': animal.close_to_timeout}"
+                >
+                    <img :src="`/static/${animal.slug}/animated/back_${animal.shiny ? 'shiny' : 'default'}.gif`" class="animal-img">
+                </div>
+            </div>
+            <div id="evolving" v-if="evolving && evolving.from">
+                <h1 v-if="evolving.progress < 100">{{ '{{ evolving.from }}' }} is evolving!</h1>
+                <h1 v-else>it's now {{ '{{ evolving.to }}' }}!</h1>
+                <img class="evolving-from" :style="{display: (evolving.progress == 100 || (evolving.progress % 2 == 0)) ? 'none' : 'inline'}" :src="`/static/${evolving.from}/dream_world/front_default.svg`">
+                <img class="evolving-to" :style="{display: (evolving.progress < 100 && (evolving.progress % 2 == 1)) ? 'none' : 'inline'}" :src="`/static/${evolving.to}/dream_world/front_default.svg`">
+            </div>
+            <div id="shelved_animals" :class="{alot: Object.values(shelvedAnimals).length > 10}">
+                <div v-for="animal in shelvedAnimals">
+                    <img :src="`/static/${animal.slug}/animated/${shelveImage}_${animal.shiny ? 'shiny' : 'default'}.gif`">
+                    <div><div v-if="animal.shiny">SHINY </div>{{ '{{ animal.name.toUpperCase() }}' }}</div>
+                </div>
+            </div>
+        </div>
+    </script>
+    <script>
+        var app = new Vue({
+            el: '#vue-app',
+            template: "#template",
+            data: () => ({
+                points: [],
+                players: {},
+                animals: {},
+                shelvedAnimals: {},
+                movingAnimals: {},
+                powerups: {},
+                dragTarget: null,
+                pointSize: 10,
+
+                playerWidth: 40,
+
+                fireworks: null,
+
+                evolving: {
+                    progress: null,
+                    from: null,
+                    to: null,
+                },
+
+                selectedPoint: null,
+                addMap: false,
+                modifyMap: false,
+                showMap: false,
+
+                shelveImage: 'front',
+            }),
+            mounted() {
+                //this.evolvingEvent('pichu', 'pikachu');
+                let entries = new URLSearchParams(window.location.search);
+                const result = {}
+                for(const [key, value] of entries) { // each 'entry' is a [key, value] tupple
+                    result[key] = value;
+                }
+                
+                if (result.addMap == '1') {
+                    document.onclick = this.addMapPoint
+                    this.addMap = true;
+                }
+                if (result.modifyMap == '1') {
+                    this.modifyMap = true
+                }
+                if (result.showMap == '1') {
+                    this.showMap = true
+                }
+                this.fetchTick();
+                setInterval(() => {
+                    if (this.shelveImage == 'front') {
+                        this.shelveImage = 'back'
+                    } else {
+                        this.shelveImage = 'front'
+                    }
+                }, 5000);
+            },
+            methods: {
+                xToPx(x, offset) {
+                    return `${(x * this.imgEl.width) + (offset || 0)}px`;
+                },
+                yToPx(y, offset) {
+                    return `${(y * this.imgEl.height) + (offset || 0)}px`;
+                },
+                drawLine(barcode1, barcode2) {
+                    const el1 = document.querySelector(`#point-${this.cleanCode(barcode1)}`);
+                    const el2 = document.querySelector(`#point-${this.cleanCode(barcode2)}`);
+                    const b1 = el1.getBoundingClientRect();
+                    const b2 = el2.getBoundingClientRect();
+                    const newLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    newLine.setAttribute('id', 'line1');
+                    newLine.setAttribute('x1', b1.left + b1.width / 2);
+                    newLine.setAttribute('y1', b1.top + b1.height / 2);
+                    newLine.setAttribute('x2', b2.left + b2.width / 2);
+                    newLine.setAttribute('y2', b2.top + b2.height / 2);
+                    newLine.setAttribute('style', 'stroke: black; stroke-width: 2;');
+                    this.$refs.svg.append(newLine);
+                },
+                fetchTick() {
+                    axios.get('/api/tick')
+                        .then(response => {
+                            this.players = response.data.players;
+                            this.points = response.data.codes;
+                            this.powerups = response.data.powerups;
+                            this.shelvedAnimals = response.data.shelved_animals;
+                            this.handleMovingAnimals(response.data.spawned_animals)
+                            this.handleAnimals(response.data.animals)
+                            this.handlePlayers();
+                            if (this.modifyMap || this.showMap) {
+                                this.drawMap()
+                            }
+                        })
+                        .catch(error => {
+                            console.log(error);
+                        })
+                        .finally(() => {
+                            setTimeout(this.fetchTick, 500);
+                        });
+                },
+                markPoint(point) {
+                    axios.post('/api/mark', {barcode: point.barcode}).then(resp => {
+                        console.log(resp.data)
+                    })
+                },
+                cleanCode(code) {
+                    return code.replaceAll('/', '').replaceAll(':', '').replaceAll('.', '');
+                },
+                dragStart(event, point) {
+                    this.dragTarget = point;
+                    document.onmouseup = this.dragEnd;
+                    document.onmousemove = this.updateDragTarget;
+                },
+                dragEnd() {
+                    const target = this.dragTarget;
+                    this.dragTarget = null;
+                    if (this.modifyMap) {
+                        if (this.selectedPoint) {
+                            this.connectPoints(this.selectedPoint, target.barcode);
+                        } else {
+                            this.selectedPoint = target.barcode
+                        }
+                    }
+                    document.onmouseup = null;
+                    document.onmousemove = null;
+                    axios.post('/api/modify', {barcode: target.barcode, x: target.x, y: target.y})
+                        .then(response => {
+                            console.log(response.data);
+                        })
+                        .catch(error => {
+                            console.log(error);
+                        });
+                },
+                connectPoints(barcode1, barcode2) {
+                    this.selectedPoint = null;
+                    axios.post('/api/connect', {barcode1: barcode1, barcode2: barcode2})
+                        .then(response => {
+                            console.log(response.data);
+                        })
+                        .catch(error => {
+                            console.log(error);
+                        });
+                },
+                drawMap() {
+                    this.$refs.svg.innerHTML = '';
+                    for (const point of Object.values(this.points)) {
+                        for (const connection of (point.connections || [])) {
+                            this.drawLine(point.barcode, connection);
+                        }
+                    }
+                },
+                updateDragTarget(event) {
+                    event = event || window.event;
+                    event.preventDefault();
+                    // calculate the new cursor position:
+                    this.dragTarget.x = (event.clientX - this.pointSize / 2) / this.imgEl.width;
+                    this.dragTarget.y = (event.clientY - this.pointSize / 2) / this.imgEl.height;
+                    console.log(this.dragTarget)
+                },
+                addMapPoint(event) {
+                    event = event || window.event;
+                    if (event) {
+                        event.preventDefault();
+                    }
+                    const newPoint = {
+                        x: (event.clientX - this.pointSize / 2) / this.imgEl.width,
+                        y: (event.clientY - this.pointSize / 2) / this.imgEl.height,
+                        barcode: 'map-point-' + Object.values(this.points).length,
+                    };
+                    
+                    axios.post('/api/add', {barcode: newPoint.barcode, x: newPoint.x, y: newPoint.y})
+                        .then(response => {
+                            console.log(response.data);
+                        })
+                        .catch(error => {
+                            console.log(error);
+                        });
+                },
+                handlePlayers() {
+                    // Allow vue to render the player elements, wait a tick
+                    this.$nextTick(() => {
+                        for (const key in this.players) {
+                            const player = this.players[key];
+                            const playerEl = document.querySelector(`#player-${this.cleanCode(key)}`);
+                            if (player.history.length == 0) {
+                                playerEl.style.display = "none";
+                                continue
+                            }
+                            playerEl.style.display = 'block';
+                            const point = this.points[player.history.slice(-1)[0]];
+                            playerEl.style.top = this.yToPx(point.y, (this.pointSize / 2) - (this.playerWidth / 2));
+                            playerEl.style.left = this.xToPx(point.x, (this.pointSize / 2) - (this.playerWidth / 2));
+                        }
+                    })
+                },
+                handleAnimals(newAnimals) {
+                    const expectingEvolutions = {}
+                    for (const oldAnimal of Object.values(this.animals)) {
+                        if (oldAnimal.evolution) {
+                            expectingEvolutions[oldAnimal.evolution] = oldAnimal.slug;
+                        }
+                    }
+                    for (const animalSlug in newAnimals) {
+                        if (expectingEvolutions[animalSlug]) {
+                            this.evolvingEvent(expectingEvolutions[animalSlug], animalSlug);
+                        }
+                        const animal = newAnimals[animalSlug];
+                        animal.newFruitFrom = false;
+                        if (this.animals[animalSlug]) {
+                            if (this.animals[animalSlug].fruit < animal.fruit || this.animals[animalSlug].close_to_timeout != animal.close_to_timeout) {
+                                if (!document.querySelector(".newFruit")) {
+                                    // New fruit
+                                    animal.newFruitFrom = true;
+                                    const pointFrom = this.points[animal.last_source];
+                                    if (pointFrom) {
+                                        animal.pointFrom = pointFrom;
+                                        // Animate newFruit
+                                        this.$nextTick(() => {
+                                            const newFruitEl = document.querySelector(".newFruit");
+                                            const animalEl = document.querySelector("#animal-" + animalSlug);
+                                            const animalPos = animalEl.getBoundingClientRect();
+                                            const animalInnerEl = animalEl.querySelector(".animal");
+                                            newFruitEl.style.top = this.yToPx(pointFrom.y);
+                                            newFruitEl.style.left = this.xToPx(pointFrom.x);
+                                            newFruitEl.style.transition = "all 2s";
+                                            this.$nextTick(() => {
+                                                newFruitEl.style.top = (animalPos.top + animalInnerEl.offsetHeight - 50) + "px";
+                                                newFruitEl.style.left = (animalPos.left + animalInnerEl.offsetWidth) + "px";
+                                            })
+                                            setTimeout(() => {
+                                                // Remove class newFruit
+                                                newFruitEl.classList.remove("newFruit");
+                                            }, 2000);
+                                        })
+                                    }
+                                }
+                            } else if (this.animals[animalSlug].fruit == animal.fruit) {
+                                continue
+                            }
+                        }
+                        this.animals[animalSlug] = animal;
+                    }
+                    for (const animalSlug in this.animals) {
+                        if (!newAnimals[animalSlug]) {
+                            delete this.animals[animalSlug];
+                        }
+                    }
+                },
+                handleMovingAnimals(newAnimals) {
+                    for (const animalSlug in newAnimals) {
+                        const animal = newAnimals[animalSlug];
+                        animal.newFruitFrom = false;
+                        if (!this.movingAnimals[animalSlug] || this.movingAnimals[animalSlug].target != animal.target || this.movingAnimals[animalSlug].close_to_timeout != animal.close_to_timeout) {
+                            this.movingAnimals[animalSlug] = animal;
+                            this.movingAnimals[animalSlug].point = this.points[animal.location];
+                            this.$nextTick(() => {
+                                const animalEl = document.querySelector(".moving-animal-" + animalSlug);
+                                if (!animalEl) {
+                                    return
+                                }
+                                animalEl.style.transition = `all ${animal.seconds_to_target}s linear`;
+                                this.movingAnimals[animalSlug].point = this.points[animal.target];
+                            })
+                        }
+                    }
+                    for (const animalSlug in this.movingAnimals) {
+                        if (!newAnimals[animalSlug]) {
+                            delete this.movingAnimals[animalSlug];
+                        }
+                    }
+                },
+                evolvingEvent(from, to) {
+                    const eventSlug = from;
+                    this.evolving = {
+                        from: from,
+                        to: to,
+                        progress: 0,
+                    };
+                    this.evolving.progress = 0
+                    const progressFunc = () => {
+                        if (this.evolving.from != eventSlug) {
+                            return
+                        }
+                        this.evolving.progress += 3;
+                        if (this.evolving.progress <= 100) {
+                            setTimeout(progressFunc, 2 * (this.evolving.progress || 0));
+                        } else {
+                            this.evolving.progress = 100
+                            setTimeout(() => {
+                                // Prevent stuff when another event is created while this is running
+                                if (this.evolving.from != eventSlug) {
+                                    return
+                                }
+                                this.evolving = null;
+                            }, 3000)
+                        }
+                    }
+                    progressFunc();
+                },
+            },
+            computed: {
+                imgEl() {
+                    return this.$refs.img;
+                },
+                superFruits() {
+                    for (const powerup of Object.values(this.powerups)) {
+                        if (powerup.active && powerup.slug == "super_fruits") {
+                            return true;
+                        }
+                    }
+                    return false;
+                },
+                mapVisible() {
+                    return this.showMap || this.modifyMap || this.addMap;
+                },
+            }
+        });
+    </script>
+</body>
+</html>

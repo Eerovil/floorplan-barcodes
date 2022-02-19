@@ -143,7 +143,7 @@ for pokemon_name, pokemon in pokemons_table.items():
     animals_table[pokemon['evolution']] = next_evolution
 
 FRUIT_TIMEOUT = 60
-ANIMAL_TIMEOUT = 2 * 60
+ANIMAL_TIMEOUT = 4 * 60
 ANIMAL_CLOSE_TIMEOUT = 30
 
 def _init_row(barcode=''):
@@ -254,6 +254,11 @@ logger.info("maps_table: %s", len(maps_table))
 @app.route("/")
 def hello_world():
     return render_template("index.html", title = 'App')
+
+
+@app.route("/tv")
+def tv_html():
+    return render_template("tv.html", title = 'App')
 
 
 @app.route("/client")
@@ -561,7 +566,7 @@ def handle_spawned_animal(animal):
         if animal.target_time < datetime.datetime.now():
             if animal.target == animal.real_target and animal.location != animal.target:
                 # Reached real target, stay a while
-                animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=random.randint(20, 30))
+                animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=random.randint(50, 60))
                 point = get_point(animal.target)
                 handle_fruit_collected(point, timeout=True)
                 point.fruit_timeout = animal.target_time
