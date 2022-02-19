@@ -624,6 +624,7 @@ def handle_animal_evolve(animal):
         animal.shiny = shiny
         animal.active = True
         animal.fruit = 0
+        animal.filled = False
         animal.fruit_slug = fruit_slug
         active_animals_table[animal.slug] = animal
     else:
@@ -650,7 +651,7 @@ def handle_animal_eating(animal):
         logger.info("%s ate a %s: %s left", animal.name, animal.fruit_slug, animal.fruit)
         animal.experience += 1
     animal.level = int(animal.experience)
-    if animal.level >= 2:
+    if animal.level >= 1:
         animal.filled = True
 
     active_animals_table[animal.slug] = animal
@@ -796,9 +797,10 @@ def mark_barcodes():
                 will_evolve = bool(animal.evolution)
                 handle_animal_evolve(animal)
                 if will_evolve:
-                    ret = "Pokemon {} kehittyi!".format(animal.slug)
+                    ret = "{} kehittyi!".format(animal.slug)
                 else:
-                    ret = "Pokemon {} laitettu talteen".format(animal.slug)
+                    ret = "{} laitettu talteen".format(animal.slug)
+                break
 
     if point.fruit:
         handle_fruit_collected(point)
@@ -810,20 +812,24 @@ def mark_barcodes():
 
     points_by_distance = [codes_table[_barcode] for _barcode in points_by_distance_table[point.barcode]]
 
-    for animal in active_animals_table.values():
-        if animal.filled:
-            ret += ". Pokemonilla {} on maha täynnä, mene telkkarin luo!".format(animal.slug)
+    for _point in points_by_distance:
+        if _point.fruit and _point.fruit.startswith('animal-'):
+            ret += '. Ota kiinni pokemon {}!'.format(point_names.get(_point.barcode))
             break
     else:
-        if point.barcode != 'http://koodi-10':
-            for _point in points_by_distance:
-                if _point.fruit and _point.fruit.startswith('animal-'):
-                    ret += '. Ota kiinni {}, se on {}'.format(_point.fruit[7:], point_names.get(_point.barcode))
-                    break
-            else:
-                for _point in points_by_distance:
-                    if _point.fruit:
-                        ret += '. Jotain kiinnostavaa olisi {}'.format(point_names.get(_point.barcode))
-                        break
+        for _point in points_by_distance:
+            if _point.fruit:
+                ret += '. Jotain kiinnostavaa olisi {}'.format(point_names.get(_point.barcode))
+                break
+
+    filled_animals = []
+    for animal in active_animals_table.values():
+        if animal.filled:
+            filled_animals.append(animal)
+
+    if len(filled_animals) == 1:
+        ret += ". Pokemonilla {} on maha täynnä".format(animal.slug)
+    elif len(filled_animals) > 1:
+        ret += ". Pokemoneilla {} on maha täynnä".format(', '.join(animal.slug for animal in filled_animals[:-1]) + ' ja ' + filled_animals[-1].slug)
 
     return ret
