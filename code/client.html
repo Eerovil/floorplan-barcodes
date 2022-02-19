@@ -2,7 +2,9 @@
 <html>
   <head>
     <title>Instascan</title>
-    <script type="text/javascript" src="/static/instascan.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=0.5, maximum-scale=0.5, user-scalable=no">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="mobile-web-app-capable" content="yes">
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
     <style>
       html {
@@ -12,9 +14,12 @@
         text-align: center;
         height: 100%;
       }
-      video {
+      .video {
         width: 100%;
         height: 20%;
+      }
+      .video canvas {
+        height: 100%;
       }
       #iframe-wrapper {
         position: relative;
@@ -23,7 +28,7 @@
         position: absolute;
         height: 80vh;
         width: 100%;
-        top: 0;
+        top: 22rem;
         left: 0;
       }
       #wrapper {
@@ -39,7 +44,39 @@
       <div id="iframe-wrapper">
         <iframe src="/"></iframe>
       </div>
-      <video id="preview"></video>
+      <video id="webcam_canvas" playsinline autoplay style="display:none"></video>
+      <div class="video">
+        <canvas id="out_canvas"></canvas>
+      </div>
+
+      <p style="display: none;">Camera Parameters (valid json, as given by <a href="https://www.calibdb.net/">calibdb</a>):<br/>
+        <textarea id="camera_info" rows="10" cols="100">
+          {
+               "camera_matrix": [
+                   [
+                       939.3384407933022,
+                       0,
+                       640.347854307481
+                   ],
+                   [
+                       0,
+                       938.2560270381138,
+                       340.7192620859387
+                   ],
+                   [
+                       0,
+                       0,
+                       1
+                   ]
+               ],
+               "img_size": [
+                   1280,
+                   720
+               ]
+           }
+        </textarea>
+       </p>
+
     </div>
     <script type="text/javascript">
       let context = null;
@@ -65,9 +102,18 @@
       if (window.speechSynthesis) {
         speechSynthesis.getVoices();
       }
+      let lastDetId = null
 
-      let scanner = new Instascan.Scanner({ video: document.getElementById('preview') });
-      scanner.addListener('scan', function (content) {
+      window.handleDetected = (det) => {
+        const content = `http://koodi-${det.id + 1}`
+        if (content == lastDetId) {
+          return
+        }
+        lastDetId = content
+        setTimeout(() => {
+          lastDetId = null
+        }, 1000)
+
         context = new AudioContext();
         beep();
         axios.post('/api/mark', {barcode: content}).then(function (response) {
@@ -79,16 +125,10 @@
           console.log(error);
         });
         console.log(content);
-      });
-      Instascan.Camera.getCameras().then(function (cameras) {
-        if (cameras.length > 0) {
-          scanner.start(cameras[0]);
-        } else {
-          console.error('No cameras found.');
-        }
-      }).catch(function (e) {
-        console.error(e);
-      });
+      }
+
     </script>
+    <script type="text/javascript" src="/static/apriltag/main.js"></script>
+    <script type="module" async src="/static/apriltag/video_process.js"></script>
   </body>
 </html>
