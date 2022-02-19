@@ -55,6 +55,7 @@ class Animal(BaseModel):
     target_time: Optional[datetime.datetime]  # When this animal is going to reach its target
     timeout: Optional[datetime.datetime]  # When this animal is going to be removed from the game
     shiny = False
+    filled = False
 
 
 class Player(BaseModel):
@@ -610,6 +611,28 @@ def handle_spawned_animal(animal):
             spawned_animals_table[animal.slug] = animal
 
 
+def handle_animal_evolve(animal):
+    if animal.evolution:
+        animal.active = False
+        fruit_slug = animal.fruit_slug
+        shiny = animal.shiny or False
+        animal.fruit = 0
+        animal.spawns = False
+        animals_table[animal.slug] = animal
+        active_animals_table.pop(animal.slug)
+        animal = animals_table[animal.evolution]
+        animal.shiny = shiny
+        animal.active = True
+        animal.fruit = 0
+        animal.fruit_slug = fruit_slug
+        active_animals_table[animal.slug] = animal
+    else:
+        active_animals_table.pop(animal.slug)
+        shelved_animals_table[animal.slug] = animal
+        animal.spawns = False
+        animals_table[animal.slug] = animal
+
+
 def handle_animal_eating(animal):
     if animal.timeout and animal.timeout < datetime.datetime.now():
         logger.info("Animal %s timeout", animal.slug)
@@ -627,25 +650,8 @@ def handle_animal_eating(animal):
         logger.info("%s ate a %s: %s left", animal.name, animal.fruit_slug, animal.fruit)
         animal.experience += 1
     animal.level = int(animal.experience)
-    if animal.level >= 2 and animal.evolution:
-        animal.active = False
-        fruit_slug = animal.fruit_slug
-        shiny = animal.shiny or False
-        animal.fruit = 0
-        animal.spawns = False
-        animals_table[animal.slug] = animal
-        active_animals_table.pop(animal.slug)
-        animal = animals_table[animal.evolution]
-        animal.shiny = shiny
-        animal.active = True
-        animal.fruit = 0
-        animal.fruit_slug = fruit_slug
-    elif animal.level >= 3:
-        active_animals_table.pop(animal.slug)
-        shelved_animals_table[animal.slug] = animal
-        animal.spawns = False
-        animals_table[animal.slug] = animal
-        return
+    if animal.level >= 2:
+        animal.filled = True
 
     active_animals_table[animal.slug] = animal
 
@@ -784,6 +790,16 @@ def mark_barcodes():
         else:
             ret = ""
 
+    if point.barcode == 'http://koodi-10':
+        for animal in active_animals_table.values():
+            if animal.filled:
+                will_evolve = bool(animal.evolution)
+                handle_animal_evolve(animal)
+                if will_evolve:
+                    ret = "Pokemon {} kehittyi!".format(animal.slug)
+                else:
+                    ret = "Pokemon {} laitettu talteen".format(animal.slug)
+
     if point.fruit:
         handle_fruit_collected(point)
 
@@ -794,14 +810,20 @@ def mark_barcodes():
 
     points_by_distance = [codes_table[_barcode] for _barcode in points_by_distance_table[point.barcode]]
 
-    for _point in points_by_distance:
-        if _point.fruit and _point.fruit.startswith('animal-'):
-            ret += '. Ota kiinni {}, se on {}'.format(_point.fruit[7:], point_names.get(_point.barcode))
+    for animal in active_animals_table.values():
+        if animal.filled:
+            ret += ". Pokemonilla {} on maha täynnä, mene telkkarin luo!".format(animal.slug)
             break
     else:
-        for _point in points_by_distance:
-            if _point.fruit:
-                ret += '. Jotain kiinnostavaa olisi {}'.format(point_names.get(_point.barcode))
-                break
+        if point.barcode != 'http://koodi-10':
+            for _point in points_by_distance:
+                if _point.fruit and _point.fruit.startswith('animal-'):
+                    ret += '. Ota kiinni {}, se on {}'.format(_point.fruit[7:], point_names.get(_point.barcode))
+                    break
+            else:
+                for _point in points_by_distance:
+                    if _point.fruit:
+                        ret += '. Jotain kiinnostavaa olisi {}'.format(point_names.get(_point.barcode))
+                        break
 
     return ret
