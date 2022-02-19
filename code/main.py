@@ -25,6 +25,7 @@ active_animals_table = SqliteDict(os.path.join(data_folder, 'progress.db'), tabl
 spawned_animals_table = SqliteDict(os.path.join(data_folder, 'progress.db'), tablename="spawned_animals", autocommit=True)
 shelved_animals_table = SqliteDict(os.path.join(data_folder, 'progress.db'), tablename="shelved_animals", autocommit=True)
 powerups_table = SqliteDict(os.path.join(data_folder, 'progress.db'), tablename="powerups", autocommit=True)
+points_by_distance_table = SqliteDict(os.path.join(data_folder, 'progress.db'), tablename="points_by_distance_table", autocommit=True)
 
 maps_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="maps", autocommit=True)
 
@@ -179,9 +180,26 @@ INITIAL_CODES = [
     'http://koodi-11',
     'http://koodi-12',
 ]
+ANIMAL_SKIP_CODES = ['http://koodi-10', 'http://koodi-11']
 for initial_code in INITIAL_CODES:
     if initial_code not in codes_table:
         codes_table[initial_code] = _init_row(initial_code)
+
+
+point_names = {
+    'http://koodi-1': 'Eteisessä',
+    'http://koodi-2': 'Kuivausrummussa',
+    'http://koodi-3': 'Pelihuoneessa',
+    'http://koodi-4': 'Jääkaapissa',
+    'http://koodi-5': 'Einarin huoneessa',
+    'http://koodi-6': 'Terassin ovella',
+    'http://koodi-7': 'Työhuoneessa',
+    'http://koodi-8': 'Verstaan ovella',
+    'http://koodi-9': 'Makuuhuoneessa',
+    'http://koodi-10': 'Telkkarin luona',
+    'http://koodi-11': 'Sohvan takana',
+    'http://koodi-12': 'Valtterin huoneessa',
+}
 
 
 def get_point(barcode):
@@ -503,7 +521,7 @@ def find_next_in_path(barcode1, barcode2):
     best_connection = None
     for main_connection in getattr(point1, 'connections', []):
         if main_connection == barcode2:
-            return main_connection
+            return main_connection, 0
         _distance = _check_path(main_connection, parent=point1.barcode)
         if _distance > 0:
             _distance += barcode_distance(barcode1, main_connection)
@@ -512,25 +530,37 @@ def find_next_in_path(barcode1, barcode2):
             best_connection_distance = _distance
 
     if best_connection:
-        return best_connection
+        return best_connection, best_connection_distance
     
     logger.warning("No path found from %s to %s", barcode1, barcode2)
     _random_connetions = [_conn for _conn in getattr(point1, 'connections', []) if _conn != barcode1]
     if len(_random_connetions) == 0:
-        return barcode2
-    return random.choice(_random_connetions)
+        return barcode2, barcode_distance(barcode1, barcode2)
+    return random.choice(_random_connetions), 1
 
+
+for point in codes_table.values():
+    if point.barcode in points_by_distance_table:
+        continue
+    logger.info("Sorting points...")
+    points_by_distance_table[point.barcode] = sorted(
+        [__point.barcode for __point in codes_table.values() if __point.barcode != point.barcode],
+        key=lambda _point: find_next_in_path(point.barcode, _point)[1]
+    )
+    logger.info("DONE Sorting points...")
+
+logger.info("points_by_distance_table: %s", len(points_by_distance_table))
 
 def animal_new_target(animal, old_location=None):
     if animal.location in codes_table:
         used_real_targets = [_sp_animal.real_target for _sp_animal in  spawned_animals_table.values() if _sp_animal.real_target]
         used_real_targets.append(animal.location)
-        available_targets = [_barcode for _barcode in codes_table.keys() if _barcode not in used_real_targets]
+        available_targets = [_barcode for _barcode in codes_table.keys() if _barcode not in used_real_targets and _barcode not in ANIMAL_SKIP_CODES]
         if len(available_targets) > 0:
             available_targets = sorted(available_targets, key=lambda _barcode: barcode_distance(animal.location, _barcode))[:3]
             animal.real_target = random.choice(available_targets)
 
-    animal.target = find_next_in_path(animal.location, animal.real_target)
+    animal.target = find_next_in_path(animal.location, animal.real_target)[0]
     distance = barcode_distance(animal.location, animal.target)
     logger.info("Animal %s new target %s, distance %s", animal.slug, animal.target, distance)
     animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=(distance * 5))
@@ -761,5 +791,17 @@ def mark_barcodes():
         if animal.real_target == point.barcode:
             handle_animal_collected(animal)
             ret += ' sait kiinni pokemonin ' + animal.name + '!'
+
+    points_by_distance = [codes_table[_barcode] for _barcode in points_by_distance_table[point.barcode]]
+
+    for _point in points_by_distance:
+        if _point.fruit and _point.fruit.startswith('animal-'):
+            ret += '. Ota kiinni {}, se on {}'.format(_point.fruit[7:], point_names.get(_point.barcode))
+            break
+    else:
+        for _point in points_by_distance:
+            if _point.fruit:
+                ret += '. Jotain kiinnostavaa olisi {}'.format(point_names.get(_point.barcode))
+                break
 
     return ret
