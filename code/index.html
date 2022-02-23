@@ -189,7 +189,7 @@
             <div id="animals">
                 <div v-for="(animal, key) in animals" :id="`animal-${cleanCode(key)}`" class="animal-wrapper">
                     <span class="animal" :class="{[animal.slug]: true, 'vibrating': animal.close_to_timeout}" :style="{'width': `${80 + animal.level*30}px`}">
-                        <img v-if="animal.fruit" :src="`/static/${animal.slug}/animated/front_${animal.shiny ? 'shiny' : 'default'}.gif`" class="animal-img">
+                        <img v-if="animal.egg" :src="`/static/egg.png`" class="animal-img">
                         <img v-else :src="`/static/${animal.slug}/animated/front_${animal.shiny ? 'shiny' : 'default'}.gif`" class="animal-img">
 
                     </span>
@@ -431,7 +431,7 @@
                         const animal = newAnimals[animalSlug];
                         animal.newFruitFrom = false;
                         if (this.animals[animalSlug]) {
-                            if (this.animals[animalSlug].fruit < animal.fruit || this.animals[animalSlug].close_to_timeout != animal.close_to_timeout) {
+                            if (this.animals[animalSlug].fruit < animal.fruit || this.animals[animalSlug].close_to_timeout != animal.close_to_timeout || this.animals[animalSlug].egg != animal.egg) {
                                 if (!document.querySelector(".newFruit")) {
                                     // New fruit
                                     animal.newFruitFrom = true;
