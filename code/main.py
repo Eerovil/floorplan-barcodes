@@ -29,7 +29,10 @@ points_by_distance_table = SqliteDict(os.path.join(data_folder, 'progress.db'), 
 
 maps_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="maps", autocommit=True)
 
-pokemons_table = SqliteDict(os.path.join(data_folder, 'pokemons.db'), tablename="pokemons", autocommit=False)
+# pokemons_table = SqliteDict(os.path.join(data_folder, 'pokemons.db'), tablename="pokemons", autocommit=False)
+pokemons_table = {}
+
+img_animals_table = SqliteDict(os.path.join(data_folder, 'img_animals.db'), tablename="img_animals", autocommit=False)
 
 FRUIT_SLUGS = ['watermelon', 'carrot', 'apple', 'sandvich']
 
@@ -143,6 +146,31 @@ for pokemon_name, pokemon in pokemons_table.items():
     next_evolution = animals_table[pokemon['evolution']]
     next_evolution.spawns = False
     animals_table[pokemon['evolution']] = next_evolution
+
+
+for img_animal_slug, img_animal in img_animals_table.items():
+    front_default = os.path.join(data_folder, img_animal_slug)
+    if not os.path.exists(front_default):
+        logger.info("Skipping img_animal %s, no images", img_animal_slug)
+        continue
+    
+    animals_table[img_animal_slug] = Animal(
+        slug=img_animal_slug,
+        name=img_animal_slug.replace('img_animals/', '').capitalize().replace('-', ' ').replace('_', ' ').split('.')[0],
+        fruit_slug='watermelon',
+        fruit=0,
+        eating_speed=3,
+        experience=0,
+        level=0,
+        start_eating=datetime.datetime.now(),
+        last_source=None,
+        evolution=None,
+        location=None,
+        target=None,
+        target_time=None,
+    )
+    logger.info("Loaded img_animal %s", animals_table[img_animal_slug].name)
+    
 
 FRUIT_TIMEOUT = 60
 ANIMAL_TIMEOUT = 4 * 60
@@ -797,9 +825,9 @@ def mark_barcodes():
                 will_evolve = bool(animal.evolution)
                 handle_animal_evolve(animal)
                 if will_evolve:
-                    ret = "{} kehittyi!".format(animal.slug)
+                    ret = "{} kehittyi!".format(animal.name)
                 else:
-                    ret = "{} laitettu talteen".format(animal.slug)
+                    ret = "{} laitettu talteen".format(animal.name)
                 break
 
     if point.fruit:
@@ -808,13 +836,13 @@ def mark_barcodes():
     for key, animal in spawned_animals_table.items():
         if animal.real_target == point.barcode:
             handle_animal_collected(animal)
-            ret += ' sait kiinni pokemonin ' + animal.name + '!'
+            ret += ' sait kiinni auton ' + animal.name + '!'
 
     points_by_distance = [codes_table[_barcode] for _barcode in points_by_distance_table[point.barcode]]
 
     for _point in points_by_distance:
         if _point.fruit and _point.fruit.startswith('animal-'):
-            ret += '. Ota kiinni pokemon {}!'.format(point_names.get(_point.barcode))
+            ret += '. Ota kiinni auto {}!'.format(point_names.get(_point.barcode))
             break
     else:
         for _point in points_by_distance:
@@ -828,8 +856,8 @@ def mark_barcodes():
             filled_animals.append(animal)
 
     if len(filled_animals) == 1:
-        ret += ". Pokemonilla {} on maha täynnä".format(animal.slug)
+        ret += ". Autolla {} on maha täynnä".format(animal.slug)
     elif len(filled_animals) > 1:
-        ret += ". Pokemoneilla {} on maha täynnä".format(', '.join(animal.slug for animal in filled_animals[:-1]) + ' ja ' + filled_animals[-1].slug)
+        ret += ". Autoilla {} on maha täynnä".format(', '.join(animal.slug for animal in filled_animals[:-1]) + ' ja ' + filled_animals[-1].slug)
 
     return ret

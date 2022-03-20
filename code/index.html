@@ -189,8 +189,8 @@
             <div id="animals">
                 <div v-for="(animal, key) in animals" :id="`animal-${cleanCode(key)}`" class="animal-wrapper">
                     <span class="animal" :class="{[animal.slug]: true, 'vibrating': animal.close_to_timeout}" :style="{'width': `${80 + animal.level*30}px`}">
-                        <img v-if="animal.fruit" :src="`/static/${animal.slug}/animated/front_${animal.shiny ? 'shiny' : 'default'}.gif`" class="animal-img">
-                        <img v-else :src="`/static/${animal.slug}/animated/front_${animal.shiny ? 'shiny' : 'default'}.gif`" class="animal-img">
+                        <img v-if="animal.fruit" :src="`/static/${animal.slug}`" class="animal-img">
+                        <img v-else :src="`/static/${animal.slug}`" class="animal-img">
 
                     </span>
                     <img class="fruit" v-for="index in animal.fruit" :key="index" :src="`/static/${animal.fruit_slug}.png`" :class="{'newFruit': (index == (animal.fruit) && animal.newFruitFrom) }">
@@ -205,7 +205,7 @@
                     class="moving-animal"
                     :class="{[`moving-animal-${animal.slug}`]: true, 'vibrating': animal.close_to_timeout}"
                 >
-                    <img :src="`/static/${animal.slug}/animated/back_${animal.shiny ? 'shiny' : 'default'}.gif`" class="animal-img">
+                    <img :src="`/static/${animal.slug}`" class="animal-img">
                 </div>
             </div>
             <div id="evolving" v-if="evolving && evolving.from">
@@ -216,7 +216,7 @@
             </div>
             <div id="shelved_animals" :class="{alot: Object.values(shelvedAnimals).length > 10}">
                 <div v-for="animal in shelvedAnimals">
-                    <img :src="`/static/${animal.slug}/animated/${shelveImage}_${animal.shiny ? 'shiny' : 'default'}.gif`">
+                    <img :src="`/static/${animal.slug}`">
                     <div><div v-if="animal.shiny">SHINY </div>{{ '{{ animal.name.toUpperCase() }}' }}</div>
                 </div>
             </div>
@@ -328,7 +328,7 @@
                     })
                 },
                 cleanCode(code) {
-                    return code.replaceAll('/', '').replaceAll(':', '').replaceAll('.', '');
+                    return code.replaceAll('/', '').replaceAll(':', '').replaceAll('.', '').replaceAll('-', '');
                 },
                 dragStart(event, point) {
                     this.dragTarget = point;
