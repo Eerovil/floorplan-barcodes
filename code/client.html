@@ -4,6 +4,8 @@
     <title>Instascan</title>
     <meta name="viewport" content="width=device-width, initial-scale=0.5, maximum-scale=0.5, user-scalable=no">
     <link rel="manifest" href="/static/manifest.json">
+    <script src="https://unpkg.com/shake-detector"></script>
+
     <meta name="mobile-web-app-capable" content="yes">
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
     <style>
@@ -97,6 +99,8 @@
         const utter = new SpeechSynthesisUtterance();
         utter.lang = 'fi-FI';
         utter.text = text;
+        utter.rate = 1.2;
+        utter.pitch = 0.8;
         speechSynthesis.cancel();
         speechSynthesis.speak(utter);
       }
@@ -127,6 +131,14 @@
         });
         console.log(content);
       }
+      const onShake = () => {
+        axios.post('/api/event', {event: 'shake'}).then((response) => {
+          console.log(response);
+        }).catch(function (error) {
+          console.log(error);
+        });
+      };
+      new window.ShakeDetector({debounceDelay: 500}).confirmPermissionGranted().subscribe(onShake).start();
 
     </script>
     <script type="text/javascript" src="/static/apriltag/main.js"></script>

@@ -59,6 +59,7 @@ class Animal(BaseModel):
     timeout: Optional[datetime.datetime]  # When this animal is going to be removed from the game
     shiny = False
     filled = False
+    egg = True
 
 
 class Player(BaseModel):
@@ -126,7 +127,7 @@ for pokemon_name, pokemon in pokemons_table.items():
         name=pokemon_name.capitalize(),
         fruit_slug='watermelon',
         fruit=0,
-        eating_speed=3,
+        eating_speed=15,
         experience=0,
         level=0,
         start_eating=datetime.datetime.now(),
@@ -135,6 +136,7 @@ for pokemon_name, pokemon in pokemons_table.items():
         location=None,
         target=None,
         target_time=None,
+        filled=False
     )
     logger.info("Loaded pokemon %s, evolution: %s", pokemon_name, pokemon.get('evolution'))
     
@@ -173,7 +175,7 @@ for img_animal_slug, img_animal in img_animals_table.items():
     
 
 FRUIT_TIMEOUT = 60
-ANIMAL_TIMEOUT = 4 * 60
+ANIMAL_TIMEOUT = 7 * 60
 ANIMAL_CLOSE_TIMEOUT = 30
 
 def _init_row(barcode=''):
@@ -229,6 +231,35 @@ point_names = {
     'http://koodi-11': 'Sohvan takana',
     'http://koodi-12': 'Valtterin huoneessa',
 }
+
+
+play_area_limits = [
+    set([
+        'http://koodi-2',
+        'http://koodi-5',
+        # Lisäsiipi
+        'http://koodi-6',
+        'http://koodi-7',
+        'http://koodi-8',
+        'http://koodi-3',
+    ]),
+    set([
+        # Lisäsiipi
+        'http://koodi-6',
+        'http://koodi-7',
+        'http://koodi-8',
+        'http://koodi-3',
+    ]),
+]
+
+main_table['PLAY_AREA'] = 0
+main_table['ACTIVE_PLAYING_START'] = None
+main_table['ACTIVE_PLAYING_CURRENT'] = None
+
+def get_not_play_area_codes():
+    if main_table['PLAY_AREA'] > len(play_area_limits) - 1:
+        return []
+    return [code for code in codes_table.keys() if code in play_area_limits[main_table['PLAY_AREA']]]
 
 
 def get_point(barcode):
@@ -584,7 +615,7 @@ def animal_new_target(animal, old_location=None):
     if animal.location in codes_table:
         used_real_targets = [_sp_animal.real_target for _sp_animal in  spawned_animals_table.values() if _sp_animal.real_target]
         used_real_targets.append(animal.location)
-        available_targets = [_barcode for _barcode in codes_table.keys() if _barcode not in used_real_targets and _barcode not in ANIMAL_SKIP_CODES]
+        available_targets = [_barcode for _barcode in codes_table.keys() if _barcode not in used_real_targets and _barcode not in ANIMAL_SKIP_CODES and _barcode not in get_not_play_area_codes()]
         if len(available_targets) > 0:
             available_targets = sorted(available_targets, key=lambda _barcode: barcode_distance(animal.location, _barcode))[:3]
             animal.real_target = random.choice(available_targets)
@@ -688,6 +719,7 @@ def handle_animal_eating(animal):
 
 def handle_animal_collected(animal):
     animal.active = True
+    animal.filled = False
     animal.fruit = 0
     animal.spawned = False
     animal.timeout = datetime.datetime.now() + datetime.timedelta(seconds=ANIMAL_TIMEOUT)
@@ -709,6 +741,12 @@ def table_to_dict(_dict):
 
 @app.route("/api/tick")
 def game_tick():
+
+    if not main_table['ACTIVE_PLAYING_CURRENT'] or (main_table['ACTIVE_PLAYING_CURRENT'] - datetime.datetime.now()).total_seconds() > 5 * 60:
+        main_table['ACTIVE_PLAYING_START'] = None
+        main_table['ACTIVE_PLAYING_CURRENT'] = None
+        main_table['PLAY_AREA'] = 0
+
     tick_enabled = True
     if main_table['last_tick'] and main_table['last_tick'] > datetime.datetime.now() - datetime.timedelta(seconds=3):
         tick_enabled = False
@@ -720,6 +758,8 @@ def game_tick():
             if point.fruit and point.fruit_timeout < datetime.datetime.now():
                 handle_fruit_collected(point, timeout=True)
             if point.fruit:
+                continue
+            if point.barcode in get_not_play_area_codes():
                 continue
             if not point.fruit_death or point.fruit_death < (datetime.datetime.now() - datetime.timedelta(seconds=90)):
                 respawn_fruit(point)
@@ -769,6 +809,11 @@ def game_tick():
         if active_animals[key]["timeout"]:
             active_animals[key]["close_to_timeout"] = active_animals[key]["timeout"] < (datetime.datetime.now() + datetime.timedelta(seconds=ANIMAL_CLOSE_TIMEOUT))
 
+    shaking = False
+    if main_table.get('last_shake'):
+        if (datetime.datetime.now() - main_table['last_shake']).total_seconds() < 1:
+            shaking = True
+
     return {
         "codes": codes,
         "players": table_to_dict(players_table),
@@ -776,6 +821,7 @@ def game_tick():
         "animals": active_animals,
         "spawned_animals": spawned_animals,
         "shelved_animals": table_to_dict(shelved_animals_table),
+        "shaking": shaking,
     }
 
 
@@ -822,7 +868,7 @@ def mark_barcodes():
 
     if point.barcode == 'http://koodi-10':
         for animal in active_animals_table.values():
-            if animal.filled:
+            if not animal.egg and animal.filled:
                 will_evolve = bool(animal.evolution)
                 handle_animal_evolve(animal)
                 if will_evolve:
@@ -837,13 +883,13 @@ def mark_barcodes():
     for key, animal in spawned_animals_table.items():
         if animal.real_target == point.barcode:
             handle_animal_collected(animal)
-            ret += ' sait kiinni auton ' + animal.name + '!'
+            ret += ' sait munan!'
 
     points_by_distance = [codes_table[_barcode] for _barcode in points_by_distance_table[point.barcode]]
 
     for _point in points_by_distance:
         if _point.fruit and _point.fruit.startswith('animal-'):
-            ret += '. Ota kiinni auto {}!'.format(point_names.get(_point.barcode))
+            ret += '. Hae muna {}!'.format(point_names.get(_point.barcode))
             break
     else:
         for _point in points_by_distance:
@@ -857,8 +903,39 @@ def mark_barcodes():
             filled_animals.append(animal)
 
     if len(filled_animals) == 1:
-        ret += ". Autolla {} on maha täynnä".format(animal.slug)
+        ret += ". Autolla {} on maha täynnä".format(filled_animals[0].slug)
     elif len(filled_animals) > 1:
         ret += ". Autoilla {} on maha täynnä".format(', '.join(animal.slug for animal in filled_animals[:-1]) + ' ja ' + filled_animals[-1].slug)
 
+    main_table['ACTIVE_PLAYING_CURRENT'] = datetime.datetime.now()
+    if not main_table['ACTIVE_PLAYING_START']:
+        main_table['ACTIVE_PLAYING_START'] = datetime.datetime.now()
+    if (main_table['ACTIVE_PLAYING_CURRENT'] - main_table['ACTIVE_PLAYING_START']).total_seconds() > 4 * 60:
+        main_table['PLAY_AREA'] = 1
+    if (main_table['ACTIVE_PLAYING_CURRENT'] - main_table['ACTIVE_PLAYING_START']).total_seconds() > 12 * 60:
+        main_table['PLAY_AREA'] = 2
+
     return ret
+
+
+@app.route("/api/event", methods=['POST'])
+def post_event():
+    event = request.json.get("event")
+    if not event:
+        return 'No event provided'
+
+    if event == 'shake':
+        main_table['last_shake'] = datetime.datetime.now()
+        logger.info("Got shake")
+        for animal in active_animals_table.values():
+            if animal.egg:
+                animal.experience += 0.1
+                animal.level = int(animal.experience)
+                logger.info("level: %s", animal.experience)
+                if animal.level >= 1:
+                    animal.egg = False
+                    animal.experience = 0
+                    animal.level = 0
+                active_animals_table[animal.slug] = animal
+
+    return 'ok'

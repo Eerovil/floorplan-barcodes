@@ -186,8 +186,8 @@
             <div v-for="(player, key) in players" :id="`player-${cleanCode(key)}`" class="player"></div>
             <div id="animals">
                 <div v-for="(animal, key) in animals" :id="`animal-${cleanCode(key)}`" class="animal-wrapper">
-                    <span class="animal" :class="{[cleanCode(animal.slug)]: true, 'vibrating': animal.close_to_timeout}" :style="{'width': `${80 + animal.level*30}px`}">
-                        <img v-if="animal.fruit" :src="`/static/${animal.slug}`" class="animal-img">
+                    <span class="animal" :class="{[animal.slug]: true, 'vibrating': animal.close_to_timeout}" :style="{'width': `${80 + animal.level*30}px`}">
+                        <img v-if="animal.egg" :src="`/static/egg.png`" class="animal-img" :class="{vibrating: shaking}">
                         <img v-else :src="`/static/${animal.slug}`" class="animal-img">
 
                     </span>
@@ -250,6 +250,8 @@
                 showMap: false,
 
                 shelveImage: 'front',
+
+                shaking: false,
             }),
             mounted() {
                 //this.evolvingEvent('pichu', 'pikachu');
@@ -306,6 +308,7 @@
                             this.points = response.data.codes;
                             this.powerups = response.data.powerups;
                             this.shelvedAnimals = response.data.shelved_animals;
+                            this.shaking = response.data.shaking;
                             this.handleMovingAnimals(response.data.spawned_animals)
                             this.handleAnimals(response.data.animals)
                             this.handlePlayers();
@@ -429,7 +432,7 @@
                         const animal = newAnimals[animalSlug];
                         animal.newFruitFrom = false;
                         if (this.animals[animalSlug]) {
-                            if (this.animals[animalSlug].fruit < animal.fruit || this.animals[animalSlug].close_to_timeout != animal.close_to_timeout) {
+                            if (this.animals[animalSlug].fruit < animal.fruit || this.animals[animalSlug].close_to_timeout != animal.close_to_timeout || this.animals[animalSlug].egg != animal.egg) {
                                 if (!document.querySelector(".newFruit")) {
                                     // New fruit
                                     animal.newFruitFrom = true;
