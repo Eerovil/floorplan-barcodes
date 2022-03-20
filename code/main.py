@@ -903,9 +903,9 @@ def mark_barcodes():
             filled_animals.append(animal)
 
     if len(filled_animals) == 1:
-        ret += ". Autolla {} on maha täynnä".format(filled_animals[0].slug)
+        ret += ". Autolla {} on maha täynnä".format(filled_animals[0].name)
     elif len(filled_animals) > 1:
-        ret += ". Autoilla {} on maha täynnä".format(', '.join(animal.slug for animal in filled_animals[:-1]) + ' ja ' + filled_animals[-1].slug)
+        ret += ". Autoilla {} on maha täynnä".format(', '.join(animal.name for animal in filled_animals[:-1]) + ' ja ' + filled_animals[-1].name)
 
     main_table['ACTIVE_PLAYING_CURRENT'] = datetime.datetime.now()
     if not main_table['ACTIVE_PLAYING_START']:
