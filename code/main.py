@@ -670,17 +670,18 @@ def handle_animal_eating(animal):
         active_animals_table.pop(animal.slug)
         return
 
-    if not animal.fruit or animal.fruit < 1:
-        animal.fruit = 0
-    elif animal.start_eating < (datetime.datetime.now() - datetime.timedelta(seconds=animal.eating_speed)):
-        animal.fruit = animal.fruit - 1
-        animal.timeout = datetime.datetime.now() + datetime.timedelta(seconds=ANIMAL_TIMEOUT)
-        animal.start_eating = datetime.datetime.now()
-        logger.info("%s ate a %s: %s left", animal.name, animal.fruit_slug, animal.fruit)
-        animal.experience += 1
-    animal.level = int(animal.experience)
-    if animal.level >= 1:
-        animal.filled = True
+    if not animal.egg:
+        if not animal.fruit or animal.fruit < 1:
+            animal.fruit = 0
+        elif animal.start_eating < (datetime.datetime.now() - datetime.timedelta(seconds=animal.eating_speed)):
+            animal.fruit = animal.fruit - 1
+            animal.timeout = datetime.datetime.now() + datetime.timedelta(seconds=ANIMAL_TIMEOUT)
+            animal.start_eating = datetime.datetime.now()
+            logger.info("%s ate a %s: %s left", animal.name, animal.fruit_slug, animal.fruit)
+            animal.experience += 1
+        animal.level = int(animal.experience)
+        if animal.level >= 1:
+            animal.filled = True
 
     active_animals_table[animal.slug] = animal
 
