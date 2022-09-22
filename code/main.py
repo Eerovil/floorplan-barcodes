@@ -29,7 +29,10 @@ points_by_distance_table = SqliteDict(os.path.join(data_folder, 'progress.db'), 
 
 maps_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="maps", autocommit=True)
 
-pokemons_table = SqliteDict(os.path.join(data_folder, 'pokemons.db'), tablename="pokemons", autocommit=False)
+# pokemons_table = SqliteDict(os.path.join(data_folder, 'pokemons.db'), tablename="pokemons", autocommit=False)
+pokemons_table = {}
+
+img_animals_table = SqliteDict(os.path.join(data_folder, 'img_animals.db'), tablename="img_animals", autocommit=False)
 
 FRUIT_SLUGS = ['watermelon', 'carrot', 'apple', 'sandvich']
 
@@ -145,6 +148,31 @@ for pokemon_name, pokemon in pokemons_table.items():
     next_evolution = animals_table[pokemon['evolution']]
     next_evolution.spawns = False
     animals_table[pokemon['evolution']] = next_evolution
+
+
+for img_animal_slug, img_animal in img_animals_table.items():
+    front_default = os.path.join(data_folder, img_animal_slug)
+    if not os.path.exists(front_default):
+        logger.info("Skipping img_animal %s, no images", img_animal_slug)
+        continue
+    
+    animals_table[img_animal_slug] = Animal(
+        slug=img_animal_slug,
+        name=img_animal_slug.replace('img_animals/', '').capitalize().replace('-', ' ').replace('_', ' ').split('.')[0],
+        fruit_slug='watermelon',
+        fruit=0,
+        eating_speed=3,
+        experience=0,
+        level=0,
+        start_eating=datetime.datetime.now(),
+        last_source=None,
+        evolution=None,
+        location=None,
+        target=None,
+        target_time=None,
+    )
+    logger.info("Loaded img_animal %s", animals_table[img_animal_slug].name)
+    
 
 FRUIT_TIMEOUT = 60
 ANIMAL_TIMEOUT = 7 * 60
@@ -673,17 +701,18 @@ def handle_animal_eating(animal):
         active_animals_table.pop(animal.slug)
         return
 
-    if not animal.fruit or animal.fruit < 1:
-        animal.fruit = 0
-    elif animal.start_eating < (datetime.datetime.now() - datetime.timedelta(seconds=animal.eating_speed)):
-        animal.fruit = animal.fruit - 1
-        animal.timeout = datetime.datetime.now() + datetime.timedelta(seconds=ANIMAL_TIMEOUT)
-        animal.start_eating = datetime.datetime.now()
-        logger.info("%s ate a %s: %s left", animal.name, animal.fruit_slug, animal.fruit)
-        animal.experience += 1
-    animal.level = int(animal.experience)
-    if animal.level >= 1:
-        animal.filled = True
+    if not animal.egg:
+        if not animal.fruit or animal.fruit < 1:
+            animal.fruit = 0
+        elif animal.start_eating < (datetime.datetime.now() - datetime.timedelta(seconds=animal.eating_speed)):
+            animal.fruit = animal.fruit - 1
+            animal.timeout = datetime.datetime.now() + datetime.timedelta(seconds=ANIMAL_TIMEOUT)
+            animal.start_eating = datetime.datetime.now()
+            logger.info("%s ate a %s: %s left", animal.name, animal.fruit_slug, animal.fruit)
+            animal.experience += 1
+        animal.level = int(animal.experience)
+        if animal.level >= 1:
+            animal.filled = True
 
     active_animals_table[animal.slug] = animal
 
@@ -843,9 +872,9 @@ def mark_barcodes():
                 will_evolve = bool(animal.evolution)
                 handle_animal_evolve(animal)
                 if will_evolve:
-                    ret = "{} kehittyi!".format(animal.slug)
+                    ret = "{} kehittyi!".format(animal.name)
                 else:
-                    ret = "{} laitettu talteen".format(animal.slug)
+                    ret = "{} laitettu talteen".format(animal.name)
                 break
 
     if point.fruit:
@@ -874,9 +903,9 @@ def mark_barcodes():
             filled_animals.append(animal)
 
     if len(filled_animals) == 1:
-        ret += ". Pokemonilla {} on maha täynnä".format(filled_animals[0].slug)
+        ret += ". Autolla {} on maha täynnä".format(filled_animals[0].name)
     elif len(filled_animals) > 1:
-        ret += ". Pokemoneilla {} on maha täynnä".format(', '.join(animal.slug for animal in filled_animals[:-1]) + ' ja ' + filled_animals[-1].slug)
+        ret += ". Autoilla {} on maha täynnä".format(', '.join(animal.name for animal in filled_animals[:-1]) + ' ja ' + filled_animals[-1].name)
 
     main_table['ACTIVE_PLAYING_CURRENT'] = datetime.datetime.now()
     if not main_table['ACTIVE_PLAYING_START']:
