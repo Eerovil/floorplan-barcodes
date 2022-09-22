@@ -480,7 +480,7 @@ def handle_fruit_collected(point, timeout=False):
                 handled = True
                 if powerup.slug == 'sun':
                     # Spawn one of each fruit type (or try to)
-                    animal_destinations = [animal.real_target for animal in animals_table.values()]
+                    animal_destinations = [animal.real_target for animal in spawned_animals_table.values()]
                     for fruit_slug in FRUIT_SLUGS:
                         for _point in sorted(codes_table.values(), key=lambda _: random.random()):
                             if _point.barcode in animal_destinations:
@@ -682,7 +682,7 @@ def animal_new_target(animal, old_location=None):
     animal.target_time = datetime.datetime.now() - datetime.timedelta(seconds=1) + datetime.timedelta(seconds=(distance * 4))
     if animal.slug == "burglar":
         # Burglar is faster
-        animal.target_time = datetime.datetime.now() - datetime.timedelta(seconds=1) + datetime.timedelta(seconds=(distance * 2))
+        animal.target_time = datetime.datetime.now() - datetime.timedelta(seconds=1) + datetime.timedelta(seconds=(distance * 1.5))
 
 
 def handle_animal_spawns(to_spawn):
@@ -721,7 +721,7 @@ def handle_spawned_animal(animal):
                 # Reached real target, stay a while
                 animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=random.randint(50, 60))
                 if animal.slug == "burglar":
-                    animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=random.randint(3, 10))
+                    animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=random.randint(2, 5))
                 point = get_point(animal.target)
                 if point.fruit and point.fruit.startswith('animal-'):
                     try:
