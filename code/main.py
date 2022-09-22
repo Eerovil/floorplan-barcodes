@@ -614,7 +614,9 @@ def animal_new_target(animal, old_location=None):
 
         available_targets = []
         if animal.slug == "burglar":
-            # Try to direct burglar towards a fruit/animal
+            # Try to direct burglar towards a fruit
+            available_targets = [code.barcode for code in codes_table.values() if code.fruit and not code.fruit.startswith('animal-') and code.barcode not in used_real_targets and code.barcode not in ANIMAL_SKIP_CODES and code.barcode not in get_not_play_area_codes()]
+            # If no fruit, try to direct burglar towards an animal
             available_targets = [code.barcode for code in codes_table.values() if code.fruit and code.barcode not in used_real_targets and code.barcode not in ANIMAL_SKIP_CODES and code.barcode not in get_not_play_area_codes()]
 
         if len(available_targets) == 0:
@@ -701,6 +703,7 @@ def handle_animal_evolve(animal):
         animal = animals_table[animal.evolution]
         animal.shiny = shiny
         animal.active = True
+        animal.egg = False
         animal.fruit = 0
         animal.filled = False
         animal.fruit_slug = fruit_slug
