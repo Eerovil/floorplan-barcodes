@@ -823,7 +823,7 @@ def game_tick():
 
     spawned_animals = table_to_dict(spawned_animals_table)
     for key in spawned_animals:
-        if spawned_animals[key]["timeout"]:
+        if spawned_animals[key]["timeout"] and key != "burglar":
             spawned_animals[key]["close_to_timeout"] = spawned_animals[key]["timeout"] < (datetime.datetime.now() + datetime.timedelta(seconds=ANIMAL_CLOSE_TIMEOUT))
         spawned_animals[key]["seconds_to_target"] = ((spawned_animals[key]["target_time"] - datetime.datetime.now()).total_seconds()) + 2.0
 
@@ -915,12 +915,12 @@ def mark_barcodes():
 
     for _point in points_by_distance:
         if _point.fruit and _point.fruit.startswith('animal-'):
-            ret += '. Hae muna {}!'.format(point_names.get(_point.barcode))
+            ret += '. Joku piileskelee {}!'.format(point_names.get(_point.barcode))
             break
     else:
         for _point in points_by_distance:
             if _point.fruit:
-                ret += '. Jotain kiinnostavaa olisi {}'.format(point_names.get(_point.barcode))
+                ret += '. Jotain maukasta olisi {}'.format(point_names.get(_point.barcode))
                 break
 
     filled_animals = []
