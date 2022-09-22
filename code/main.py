@@ -628,6 +628,9 @@ def animal_new_target(animal, old_location=None):
     distance = barcode_distance(animal.location, animal.target)
     logger.info("Animal %s new target %s, distance %s", animal.slug, animal.target, distance)
     animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=(distance * 5))
+    if animal.slug == "burglar":
+        # Burglar is faster
+        animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=(distance * 3))
 
 
 def handle_animal_spawns(to_spawn):
@@ -666,7 +669,7 @@ def handle_spawned_animal(animal):
                 # Reached real target, stay a while
                 animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=random.randint(50, 60))
                 if animal.slug == "burglar":
-                    animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=random.randint(10, 20))
+                    animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=random.randint(3, 10))
                 point = get_point(animal.target)
                 if point.fruit and point.fruit.startswith('animal-'):
                     stolen_animal = spawned_animals_table[point.fruit.replace('animal-', '')]
@@ -904,7 +907,7 @@ def mark_barcodes():
         handle_fruit_collected(point)
 
     for key, animal in spawned_animals_table.items():
-        if animal.real_target == point.barcode:
+        if animal.real_target == point.barcode and animal.location == animal.real_target:
             handle_animal_collected(animal)
             if animal.slug == "burglar":
                 ret += ' voi ei! Varas!'
@@ -915,12 +918,12 @@ def mark_barcodes():
 
     for _point in points_by_distance:
         if _point.fruit and _point.fruit.startswith('animal-'):
-            ret += '. Joku piileskelee {}!'.format(point_names.get(_point.barcode))
+            ret += '. Jotain olisi {}!'.format(point_names.get(_point.barcode))
             break
     else:
         for _point in points_by_distance:
             if _point.fruit:
-                ret += '. Jotain maukasta olisi {}'.format(point_names.get(_point.barcode))
+                ret += '. Jotain olisi {}'.format(point_names.get(_point.barcode))
                 break
 
     filled_animals = []
