@@ -148,7 +148,7 @@ for pokemon_name, pokemon in pokemons_table.items():
 
 
 animals_table[pokemon_name] = Animal(
-    slug=burglar,
+    slug="burglar",
     name="Varas",
     fruit_slug='watermelon',
     fruit=0,
