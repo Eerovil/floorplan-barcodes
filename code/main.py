@@ -286,7 +286,7 @@ for key in list(maps_table.keys()):
 
 for key, point in codes_table.items():
     point.fruit_death = datetime.datetime.now() - datetime.timedelta(days=1)
-    point.fruit_timeout = None
+    point.fruit_timeout = datetime.datetime.now()
 
     point.connections = getattr(point, 'connections', [])
     point.gift = False
@@ -679,10 +679,10 @@ def animal_new_target(animal, old_location=None):
     animal.target = find_next_in_path(animal.location, animal.real_target)[0]
     distance = barcode_distance(animal.location, animal.target)
     logger.info("Animal %s new target %s, distance %s", animal.slug, animal.target, distance)
-    animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=(distance * 3))
+    animal.target_time = datetime.datetime.now() - datetime.timedelta(seconds=1) + datetime.timedelta(seconds=(distance * 3))
     if animal.slug == "burglar":
         # Burglar is faster
-        animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=(distance * 1))
+        animal.target_time = datetime.datetime.now() - datetime.timedelta(seconds=1) + datetime.timedelta(seconds=(distance * 1))
 
 
 def handle_animal_spawns(to_spawn):
@@ -716,7 +716,7 @@ def handle_spawned_animal(animal):
         return
 
     if animal.target and animal.target_time:
-        if animal.target_time < datetime.datetime.now():
+        if animal.target_time <= datetime.datetime.now():
             if animal.target == animal.real_target and animal.location != animal.target:
                 # Reached real target, stay a while
                 animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=random.randint(50, 60))
@@ -733,7 +733,7 @@ def handle_spawned_animal(animal):
                         point.fruit = None
 
                 handle_fruit_collected(point, timeout=True)
-                point.fruit_timeout = animal.target_time
+                point.fruit_timeout = animal.target_time or datetime.datetime.now()
                 point.fruit = 'animal-{}'.format(animal.slug)
                 codes_table[point.barcode] = point
                 animal.location = animal.target
@@ -939,6 +939,8 @@ def mark_barcodes():
             ret += 'leivän!'
         elif point.fruit == 'super_fruits':
             ret += 'pullon! Kaikki hedelmät on isoja!'
+        elif point.fruit == 'sun':
+            ret += 'Auringon! Hedelmiä kasvaa!'
         else:
             ret = ""
 
