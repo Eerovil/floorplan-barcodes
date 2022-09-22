@@ -665,6 +665,8 @@ def handle_spawned_animal(animal):
             if animal.target == animal.real_target and animal.location != animal.target:
                 # Reached real target, stay a while
                 animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=random.randint(50, 60))
+                if animal.slug == "burglar":
+                    animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=random.randint(10, 20))
                 point = get_point(animal.target)
                 if point.fruit and point.fruit.startswith('animal-'):
                     stolen_animal = spawned_animals_table[point.fruit.replace('animal-', '')]
