@@ -615,7 +615,7 @@ def animal_new_target(animal, old_location=None):
         available_targets = []
         if animal.slug == "burglar":
             # Try to direct burglar towards a fruit/animal
-            available_targets = [code['barcode'] for code in codes_table.values() if code.fruit and code['barcode'] not in used_real_targets and code['barcode'] not in ANIMAL_SKIP_CODES and code['barcode'] not in get_not_play_area_codes()]
+            available_targets = [code.barcode for code in codes_table.values() if code.fruit and code.barcode not in used_real_targets and code.barcode not in ANIMAL_SKIP_CODES and code.barcode not in get_not_play_area_codes()]
 
         if len(available_targets) == 0:
             available_targets = [_barcode for _barcode in codes_table.keys() if _barcode not in used_real_targets and _barcode not in ANIMAL_SKIP_CODES and _barcode not in get_not_play_area_codes()]
