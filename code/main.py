@@ -99,6 +99,16 @@ powerups_table['super_fruits'] = Powerup(
     available=True,
     start_time=datetime.datetime.now() - datetime.timedelta(days=1),
 )
+powerups_table['sun'] = Powerup(
+    slug='sun',
+    name='Lisää hedelmiä',
+    duration=0,
+    cooldown=0,
+    active=False,
+    available=True,
+    start_time=datetime.datetime.now() - datetime.timedelta(days=1),
+)
+
 
 # Load pokemons
 for animal_slug in list(animals_table.keys()):
@@ -147,7 +157,7 @@ for pokemon_name, pokemon in pokemons_table.items():
     animals_table[pokemon['evolution']] = next_evolution
 
 
-animals_table[pokemon_name] = Animal(
+animals_table["burglar"] = Animal(
     slug="burglar",
     name="Varas",
     fruit_slug='watermelon',
@@ -180,7 +190,7 @@ def _init_row(barcode=''):
         'fruit': None,
         'fruit_death': datetime.datetime.now() - datetime.timedelta(days=1),
         "super_fruit": False,
-        'fruit_timeout': datetime.datetime.now() + datetime.timedelta(seconds=FRUIT_TIMEOUT),
+        'fruit_timeout': None,
     })
 
 
@@ -204,7 +214,7 @@ INITIAL_CODES = [
     'http://koodi-11',
     'http://koodi-12',
 ]
-ANIMAL_SKIP_CODES = ['http://koodi-10', 'http://koodi-11']
+ANIMAL_SKIP_CODES = ['http://koodi-6']
 for initial_code in INITIAL_CODES:
     if initial_code not in codes_table:
         codes_table[initial_code] = _init_row(initial_code)
@@ -246,7 +256,7 @@ play_area_limits = [
     ]),
 ]
 
-main_table['PLAY_AREA'] = 0
+main_table['PLAY_AREA'] = 30
 main_table['ACTIVE_PLAYING_START'] = None
 main_table['ACTIVE_PLAYING_CURRENT'] = None
 
@@ -275,7 +285,8 @@ for key in list(maps_table.keys()):
 
 for key, point in codes_table.items():
     point.fruit_death = datetime.datetime.now() - datetime.timedelta(days=1)
-    point.fruit_timeout = datetime.datetime.now()
+    point.fruit_timeout = None
+
     point.connections = getattr(point, 'connections', [])
     point.gift = False
     missing_connections = set()
@@ -466,6 +477,16 @@ def handle_fruit_collected(point, timeout=False):
                 point.fruit = None
                 point.fruit_death = datetime.datetime.now()
                 handled = True
+                if powerup.slug == 'sun':
+                    # Spawn one of each fruit type (or try to)
+                    animal_destinations = [animal.real_target for animal in animals_table.values()]
+                    for fruit_slug in FRUIT_SLUGS:
+                        for _point in sorted(codes_table.values(), key=lambda _: random.random()):
+                            if _point.barcode in animal_destinations:
+                                continue
+                            if not _point.fruit:
+                                respawn_fruit(_point, fruit_slug=fruit_slug)
+                                break
                 logger.info("Powerup collected: %s at %s", powerup.slug, point.barcode)
 
     if not handled:
@@ -494,19 +515,23 @@ def handle_fruit_collected(point, timeout=False):
     for point in codes_table.values():
         if point.fruit:
             break
-    else:
-        logger.info("All fruits collected")
-        point = random.choice(list(codes_table.values()))
-        respawn_fruit(point)
 
 
-def respawn_fruit(point):
+def respawn_fruit(point, powerup_only=False, fruit_slug=None):
     powerups = []
     for powerup_slug, powerup in powerups_table.items():
         if powerup.active or not powerup.available:
             continue
         if powerup.start_time + datetime.timedelta(seconds=powerup.cooldown) > datetime.datetime.now():
             continue
+        if powerup.slug == "sun":
+            if len(list(_point for _point in codes_table.values() if _point.fruit and not _point.fruit.startswith("animal"))) > 1:
+                # Sun is available only if just one or no fruit is on the map
+                continue
+        if powerup.slug == "super_fruits":
+            if len(list(_point for _point in codes_table.values() if _point.fruit and not _point.fruit.startswith("animal") and point.fruit != "sun")) == 0:
+                # super_fruits is available only if fruits are on the map
+                continue
         for _point in codes_table.values():
             if _point.fruit == powerup_slug:
                 break
@@ -521,6 +546,7 @@ def respawn_fruit(point):
 
     spawn_type = "fruit"
     point.gift = not gift_exists and random.randint(0, 100) < 50
+
     if not gift_exists:
         if random.randint(0, 100) < 50:
             if len(powerups) > 0:
@@ -532,13 +558,19 @@ def respawn_fruit(point):
         powerup = random.choice(powerups)
         logger.info("Powerup %s spawned", powerup.slug)
         point.fruit = powerup.slug
+        if powerup.slug == "sun":
+            # Sun is never hidden as gift
+            point.gift = False
         point.fruit_timeout = datetime.datetime.now() + datetime.timedelta(seconds=FRUIT_TIMEOUT)
-    else:
-        fruit_slugs = list(set([animal.fruit_slug for animal in active_animals_table.values()]))
+    elif not powerup_only:
+        if fruit_slug:
+            fruit_slugs = [fruit_slug]
+        else:
+            fruit_slugs = list(set([animal.fruit_slug for animal in active_animals_table.values()]))
         if len(fruit_slugs) > 0:
             point.fruit = random.choice(fruit_slugs)
             point.super_fruit = random.randint(0, 100) < 10
-            point.fruit_timeout = datetime.datetime.now() + datetime.timedelta(seconds=FRUIT_TIMEOUT)
+            point.fruit_timeout = None
             logger.info("Fruit respawned at code %s: %s", point.barcode, point.fruit)
     codes_table[point.barcode] = point
 
@@ -608,7 +640,7 @@ logger.info("points_by_distance_table: %s", len(points_by_distance_table))
 def animal_new_target(animal, old_location=None):
     if animal.slug == "burglar" or animal.location in codes_table:
         # Animal is in a "bush"
-        used_real_targets = [_sp_animal.real_target for _sp_animal in  spawned_animals_table.values() if _sp_animal.real_target]
+        used_real_targets = [_sp_animal.real_target for _sp_animal in spawned_animals_table.values() if _sp_animal.real_target]
         if animal.slug == "burglar":
             used_real_targets = []  # Burglar can go anywhere
         used_real_targets.append(animal.location)
@@ -616,9 +648,20 @@ def animal_new_target(animal, old_location=None):
         available_targets = []
         if animal.slug == "burglar":
             # Try to direct burglar towards a fruit
-            available_targets = [code.barcode for code in codes_table.values() if code.fruit and not code.fruit.startswith('animal-') and code.barcode not in used_real_targets and code.barcode not in ANIMAL_SKIP_CODES and code.barcode not in get_not_play_area_codes()]
+            available_targets = [
+                code.barcode for code in codes_table.values()
+                if (
+                    code.fruit and
+                    not code.fruit.startswith('animal-') and
+                    code.barcode not in used_real_targets and
+                    code.barcode not in ANIMAL_SKIP_CODES and
+                    code.barcode not in get_not_play_area_codes()
+                )
+            ]
 
+            logger.info("Burglar available_targets: %s", available_targets)
             if len(available_targets) == 0:
+                logger.info("Burglar can't find any fruit, trying to find any point")
                 # If no fruit, try to direct burglar towards an animal
                 available_targets = [code.barcode for code in codes_table.values() if code.fruit and code.barcode not in used_real_targets and code.barcode not in ANIMAL_SKIP_CODES and code.barcode not in get_not_play_area_codes()]
 
@@ -680,10 +723,13 @@ def handle_spawned_animal(animal):
                     animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=random.randint(3, 10))
                 point = get_point(animal.target)
                 if point.fruit and point.fruit.startswith('animal-'):
-                    stolen_animal = spawned_animals_table[point.fruit.replace('animal-', '')]
-                    stolen_animal.timeout = datetime.datetime.now()
-                    spawned_animals_table[stolen_animal.slug] = stolen_animal
-                    logger.info("Animal %s stolen by %s", stolen_animal.slug, animal.slug)
+                    try:
+                        stolen_animal = spawned_animals_table[point.fruit.replace('animal-', '')]
+                        stolen_animal.timeout = datetime.datetime.now()
+                        spawned_animals_table[stolen_animal.slug] = stolen_animal
+                        logger.info("Animal %s stolen by %s", stolen_animal.slug, animal.slug)
+                    except KeyError:
+                        point.fruit = None
 
                 handle_fruit_collected(point, timeout=True)
                 point.fruit_timeout = animal.target_time
@@ -780,7 +826,7 @@ def game_tick():
     if not main_table['ACTIVE_PLAYING_CURRENT'] or (main_table['ACTIVE_PLAYING_CURRENT'] - datetime.datetime.now()).total_seconds() > 5 * 60:
         main_table['ACTIVE_PLAYING_START'] = None
         main_table['ACTIVE_PLAYING_CURRENT'] = None
-        main_table['PLAY_AREA'] = 0
+        main_table['PLAY_AREA'] = 30
 
     tick_enabled = True
     if main_table['last_tick'] and main_table['last_tick'] > datetime.datetime.now() - datetime.timedelta(seconds=3):
@@ -790,14 +836,14 @@ def game_tick():
 
     if tick_enabled:
         for key, point in codes_table.items():
-            if point.fruit and point.fruit_timeout < datetime.datetime.now():
+            if point.fruit and point.fruit_timeout and point.fruit_timeout < datetime.datetime.now():
                 handle_fruit_collected(point, timeout=True)
             if point.fruit:
                 continue
             if point.barcode in get_not_play_area_codes():
                 continue
-            if not point.fruit_death or point.fruit_death < (datetime.datetime.now() - datetime.timedelta(seconds=90)):
-                respawn_fruit(point)
+            if not point.fruit_death or point.fruit_death < (datetime.datetime.now() - datetime.timedelta(seconds=30)):
+                respawn_fruit(point, powerup_only=True)
 
         for key, powerup in powerups_table.items():
             if powerup.active and powerup.start_time + datetime.timedelta(seconds=powerup.duration) < datetime.datetime.now():
@@ -812,8 +858,9 @@ def game_tick():
             handle_spawned_animal(animal)
 
         animal_to_spawn = 4 - len(spawned_animals_table) - len(active_animals_table)
-        if animal_to_spawn > 0:
-            handle_animal_spawns(animal_to_spawn)
+        if animal_to_spawn > 0 and main_table['last_tick'] > datetime.datetime.now() - datetime.timedelta(seconds=10):
+            # Only spawn animals every 10 seconds
+            handle_animal_spawns(1)
 
 
         dead_players = []
@@ -825,8 +872,6 @@ def game_tick():
             del players_table[key]
 
     codes = table_to_dict(codes_table)
-    for key in codes:
-        codes[key]["close_to_timeout"] = codes[key]["fruit_timeout"] < (datetime.datetime.now() + datetime.timedelta(seconds=15))
 
     maps = table_to_dict(maps_table)
     for key in maps:
@@ -835,14 +880,9 @@ def game_tick():
 
     spawned_animals = table_to_dict(spawned_animals_table)
     for key in spawned_animals:
-        if spawned_animals[key]["timeout"] and key != "burglar":
-            spawned_animals[key]["close_to_timeout"] = spawned_animals[key]["timeout"] < (datetime.datetime.now() + datetime.timedelta(seconds=ANIMAL_CLOSE_TIMEOUT))
         spawned_animals[key]["seconds_to_target"] = ((spawned_animals[key]["target_time"] - datetime.datetime.now()).total_seconds()) + 2.0
 
     active_animals = table_to_dict(active_animals_table)
-    for key in active_animals:
-        if active_animals[key]["timeout"]:
-            active_animals[key]["close_to_timeout"] = active_animals[key]["timeout"] < (datetime.datetime.now() + datetime.timedelta(seconds=ANIMAL_CLOSE_TIMEOUT))
 
     shaking = False
     if main_table.get('last_shake'):
