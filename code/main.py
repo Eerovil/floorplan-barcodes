@@ -136,7 +136,7 @@ for pokemon_name, pokemon in pokemons_table.items():
         filled=False
     )
     logger.info("Loaded pokemon %s, evolution: %s", pokemon_name, pokemon.get('evolution'))
-    
+
 for pokemon_name, pokemon in pokemons_table.items():
     if 'evolution' not in pokemon:
         continue
@@ -145,6 +145,27 @@ for pokemon_name, pokemon in pokemons_table.items():
     next_evolution = animals_table[pokemon['evolution']]
     next_evolution.spawns = False
     animals_table[pokemon['evolution']] = next_evolution
+
+
+animals_table[pokemon_name] = Animal(
+    slug=burglar,
+    name="Varas",
+    fruit_slug='watermelon',
+    fruit=0,
+    eating_speed=15,
+    experience=0,
+    level=0,
+    start_eating=datetime.datetime.now(),
+    last_source=None,
+    evolution=None,
+    location=None,
+    target=None,
+    target_time=None,
+    filled=False
+)
+logger.info("Added burglar")
+
+
 
 FRUIT_TIMEOUT = 60
 ANIMAL_TIMEOUT = 7 * 60
@@ -587,8 +608,18 @@ logger.info("points_by_distance_table: %s", len(points_by_distance_table))
 def animal_new_target(animal, old_location=None):
     if animal.location in codes_table:
         used_real_targets = [_sp_animal.real_target for _sp_animal in  spawned_animals_table.values() if _sp_animal.real_target]
+        if animal.slug == "burglar":
+            used_real_targets = []  # Burglar can go anywhere
         used_real_targets.append(animal.location)
-        available_targets = [_barcode for _barcode in codes_table.keys() if _barcode not in used_real_targets and _barcode not in ANIMAL_SKIP_CODES and _barcode not in get_not_play_area_codes()]
+
+        available_targets = []
+        if animal.slug == "burglar":
+            # Try to direct burglar towards a fruit/animal
+            available_targets = [_barcode for _barcode in codes_table.keys() if _barcode.fruit and _barcode not in used_real_targets and _barcode not in ANIMAL_SKIP_CODES and _barcode not in get_not_play_area_codes()]
+
+        if len(available_targets) == 0:
+            available_targets = [_barcode for _barcode in codes_table.keys() if _barcode not in used_real_targets and _barcode not in ANIMAL_SKIP_CODES and _barcode not in get_not_play_area_codes()]
+
         if len(available_targets) > 0:
             available_targets = sorted(available_targets, key=lambda _barcode: barcode_distance(animal.location, _barcode))[:3]
             animal.real_target = random.choice(available_targets)
@@ -605,7 +636,11 @@ def handle_animal_spawns(to_spawn):
         animal for animal in animals_table.values()
         if animal.slug not in active_animals_table and animal.slug not in spawned_animals_table and animal.spawns
     ]
-    to_spawn = random.choices(available_animals, k=to_spawn)
+    if any(animal.slug == 'burglar' for animal in available_animals):
+        burglar = [animal for animal in available_animals if animal.slug == 'burglar'][0]
+        to_spawn = random.choices(available_animals, k=(to_spawn - 1)) + [burglar]
+    else:
+        to_spawn = random.choices(available_animals, k=to_spawn)
     for animal in to_spawn:
         animal.spawned = True
         animal.shiny = random.randint(0, 100) < 10
@@ -618,7 +653,7 @@ def handle_animal_spawns(to_spawn):
 
 
 def handle_spawned_animal(animal):
-    if animal.timeout and animal.timeout < datetime.datetime.now():
+    if animal.timeout and animal.timeout < datetime.datetime.now() and animal.slug != "burglar":
         logger.info("Animal %s timeout", animal.slug)
         animal.timeout = None
         animal.spawned = False
@@ -631,6 +666,12 @@ def handle_spawned_animal(animal):
                 # Reached real target, stay a while
                 animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=random.randint(50, 60))
                 point = get_point(animal.target)
+                if point.fruit and point.fruit.startswith('animal-'):
+                    stolen_animal = spawned_animals_table[point.fruit.replace('animal-', '')]
+                    stolen_animal.timeout = datetime.datetime.now()
+                    spawned_animals_table[stolen_animal.slug] = stolen_animal
+                    logger.info("Animal %s stolen by %s", stolen_animal.slug, animal.slug)
+
                 handle_fruit_collected(point, timeout=True)
                 point.fruit_timeout = animal.target_time
                 point.fruit = 'animal-{}'.format(animal.slug)
@@ -690,6 +731,14 @@ def handle_animal_eating(animal):
 
 
 def handle_animal_collected(animal):
+    if animal.slug == "burglar":
+        # timeout a collected animal
+        for key in (active_animals_table.keys()):
+            animal_to_steal = active_animals_table[key]
+            animal_to_steal.timeout = datetime.datetime.now()
+            active_animals_table[key] = animal_to_steal
+            break
+        return
     animal.active = True
     animal.filled = False
     animal.fruit = 0
@@ -855,7 +904,10 @@ def mark_barcodes():
     for key, animal in spawned_animals_table.items():
         if animal.real_target == point.barcode:
             handle_animal_collected(animal)
-            ret += ' sait munan!'
+            if animal.slug == "burglar":
+                ret += ' voi ei! Varas!'
+            else:
+                ret += ' sait munan!'
 
     points_by_distance = [codes_table[_barcode] for _barcode in points_by_distance_table[point.barcode]]
 
