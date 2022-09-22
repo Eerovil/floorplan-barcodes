@@ -4,6 +4,7 @@ import os
 import datetime
 import random
 import logging
+from decimal import Decimal
 
 
 from typing import List, Optional
@@ -452,7 +453,7 @@ def modify_barcode():
 
 
 def distance(x1, y1, x2, y2):
-    return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
+    return float(((Decimal(x1) - Decimal(x2)) ** 2 + (Decimal(y1) - Decimal(y2)) ** 2) ** Decimal(0.5))
 
 
 def active_powerups():
@@ -678,10 +679,10 @@ def animal_new_target(animal, old_location=None):
     animal.target = find_next_in_path(animal.location, animal.real_target)[0]
     distance = barcode_distance(animal.location, animal.target)
     logger.info("Animal %s new target %s, distance %s", animal.slug, animal.target, distance)
-    animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=(distance * 5))
+    animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=(distance * 3))
     if animal.slug == "burglar":
         # Burglar is faster
-        animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=(distance * 2))
+        animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=(distance * 1))
 
 
 def handle_animal_spawns(to_spawn):
@@ -1007,7 +1008,7 @@ def post_event():
         logger.info("Got shake")
         for animal in active_animals_table.values():
             if animal.egg:
-                animal.experience += 0.1
+                animal.experience += 0.3
                 animal.level = int(animal.experience)
                 logger.info("level: %s", animal.experience)
                 if animal.level >= 1:
