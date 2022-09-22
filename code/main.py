@@ -606,7 +606,8 @@ for point in codes_table.values():
 logger.info("points_by_distance_table: %s", len(points_by_distance_table))
 
 def animal_new_target(animal, old_location=None):
-    if animal.location in codes_table:
+    if animal.slug == "burglar" or animal.location in codes_table:
+        # Animal is in a "bush"
         used_real_targets = [_sp_animal.real_target for _sp_animal in  spawned_animals_table.values() if _sp_animal.real_target]
         if animal.slug == "burglar":
             used_real_targets = []  # Burglar can go anywhere
@@ -626,7 +627,10 @@ def animal_new_target(animal, old_location=None):
 
         if len(available_targets) > 0:
             available_targets = sorted(available_targets, key=lambda _barcode: barcode_distance(animal.location, _barcode))[:3]
-            animal.real_target = random.choice(available_targets)
+            if animal.slug == "burglar":
+                animal.real_target = available_targets[0]
+            else:
+                animal.real_target = random.choice(available_targets)
 
     animal.target = find_next_in_path(animal.location, animal.real_target)[0]
     distance = barcode_distance(animal.location, animal.target)
