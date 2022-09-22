@@ -191,18 +191,19 @@ for initial_code in INITIAL_CODES:
 
 point_names = {
     'http://koodi-1': 'Eteisessä',
-    'http://koodi-2': 'Kuivausrummussa',
-    'http://koodi-3': 'Pelihuoneessa',
-    'http://koodi-4': 'Jääkaapissa',
-    'http://koodi-5': 'Einarin huoneessa',
-    'http://koodi-6': 'Terassin ovella',
-    'http://koodi-7': 'Työhuoneessa',
-    'http://koodi-8': 'Verstaan ovella',
-    'http://koodi-9': 'Makuuhuoneessa',
-    'http://koodi-10': 'Telkkarin luona',
-    'http://koodi-11': 'Sohvan takana',
-    'http://koodi-12': 'Valtterin huoneessa',
+    'http://koodi-2': 'Sohvan takana',
+    'http://koodi-3': 'Savupiipussa',
+    'http://koodi-4': 'Vaatehuoneessa',
+    'http://koodi-5': 'Jääkaapissa',
+    'http://koodi-6': 'Telkkarin Luona',
+    'http://koodi-7': 'Kuivausrummussa',
+    'http://koodi-8': 'Einarin Huoneessa',
+    'http://koodi-9': 'Saunassa',
+    'http://koodi-10': 'Makuuhuoneessa',
+    'http://koodi-11': 'Valtterin huoneessa',
+    'http://koodi-12': 'Kodinhoitohuoneessa',
 }
+
 
 
 play_area_limits = [
@@ -837,7 +838,7 @@ def mark_barcodes():
         else:
             ret = ""
 
-    if point.barcode == 'http://koodi-10':
+    if point.barcode == 'http://koodi-6':
         for animal in active_animals_table.values():
             if not animal.egg and animal.filled:
                 will_evolve = bool(animal.evolution)
