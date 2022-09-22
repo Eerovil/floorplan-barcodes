@@ -482,7 +482,7 @@
                                 if (!animalEl) {
                                     return
                                 }
-                                animalEl.style.transition = `all ${animal.seconds_to_target + 1}s linear`;
+                                animalEl.style.transition = `all ${animal.seconds_to_target}s linear`;
                                 this.movingAnimals[animalSlug].point = this.points[animal.target];
                             })
                         }

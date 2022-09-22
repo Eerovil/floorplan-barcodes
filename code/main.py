@@ -679,10 +679,10 @@ def animal_new_target(animal, old_location=None):
     animal.target = find_next_in_path(animal.location, animal.real_target)[0]
     distance = barcode_distance(animal.location, animal.target)
     logger.info("Animal %s new target %s, distance %s", animal.slug, animal.target, distance)
-    animal.target_time = datetime.datetime.now() - datetime.timedelta(seconds=1) + datetime.timedelta(seconds=(distance * 3))
+    animal.target_time = datetime.datetime.now() - datetime.timedelta(seconds=1) + datetime.timedelta(seconds=(distance * 4))
     if animal.slug == "burglar":
         # Burglar is faster
-        animal.target_time = datetime.datetime.now() - datetime.timedelta(seconds=1) + datetime.timedelta(seconds=(distance * 1))
+        animal.target_time = datetime.datetime.now() - datetime.timedelta(seconds=1) + datetime.timedelta(seconds=(distance * 2))
 
 
 def handle_animal_spawns(to_spawn):
@@ -881,7 +881,7 @@ def game_tick():
 
     spawned_animals = table_to_dict(spawned_animals_table)
     for key in spawned_animals:
-        spawned_animals[key]["seconds_to_target"] = ((spawned_animals[key]["target_time"] - datetime.datetime.now()).total_seconds()) + 2.0
+        spawned_animals[key]["seconds_to_target"] = ((spawned_animals[key]["target_time"] - datetime.datetime.now()).total_seconds()) + 3.0
 
     active_animals = table_to_dict(active_animals_table)
 
