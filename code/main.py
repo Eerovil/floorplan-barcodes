@@ -914,7 +914,7 @@ def game_tick():
         main_table['PLAY_AREA'] = 30
 
     tick_enabled = True
-    if main_table['last_tick'] and main_table['last_tick'] > datetime.datetime.now() - datetime.timedelta(seconds=3):
+    if main_table['last_tick'] and main_table['last_tick'] > datetime.datetime.now() - datetime.timedelta(seconds=2):
         tick_enabled = False
     else:
         main_table['last_tick'] = datetime.datetime.now()
