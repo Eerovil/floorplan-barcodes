@@ -748,7 +748,7 @@ def handle_animal_spawns(to_spawn):
                 if _animal.slug == animal_slug
             ][0]
             animal = animal.copy()
-            animal.id = len(animals_table)
+            animal.id = len(animals_table) + 1
             animals_table[animal.id] = animal
             available_animals.append(animal)
 
