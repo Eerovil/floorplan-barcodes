@@ -8,7 +8,6 @@
 
     <meta name="mobile-web-app-capable" content="yes">
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/combine/npm/tone@14.7.58,npm/@magenta/music@1.23.1/es6/core.js,npm/focus-visible@5,npm/html-midi-player@1.5.0"></script>
 
     <style>
       html {
@@ -116,12 +115,7 @@
         }
       }
       const playMusic = () => {
-        const player = document.getElementById("midi-player");
-        if (player.playing) {
-          return;
-        }
-        player.loop = true;
-        player.start();
+        new Audio('/static/trainer-battle-2.mp3').play()
       }
       const speak = (text) => {
         const utter = new SpeechSynthesisUtterance();
