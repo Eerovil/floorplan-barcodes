@@ -60,7 +60,7 @@ class Animal(BaseModel):
     timeout: Optional[datetime.datetime]  # When this animal is going to be removed from the game
     shiny = False
     filled = False
-    egg = False
+    egg = True
     index = 0
 
     def __init__(self, **data):
@@ -180,6 +180,7 @@ for pokemon_name, pokemon in pokemons_table.items():
             next_evolution = animal
             break
     next_evolution.spawns = False
+    next_evolution.egg = False
     animals_table[next_evolution.id] = next_evolution
 
     if pokemon_name not in pokemon_roots:
