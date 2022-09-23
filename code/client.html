@@ -114,8 +114,13 @@
           time += _beep[1];
         }
       }
+      audio = null;
       const playMusic = () => {
-        new Audio('/static/trainer-battle-2.mp3').play()
+        if (!audio) {
+          audio = new Audio('/static/trainer-battle-2.mp3')
+          audio.volume = 0.1;
+          audio.play();
+        }
       }
       const speak = (text) => {
         const utter = new SpeechSynthesisUtterance();
