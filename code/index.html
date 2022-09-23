@@ -203,7 +203,7 @@
                     :key="animal.id"
                     :style="{'top': yToPx(animal.point.y, -15), 'left': xToPx(animal.point.x, -15), 'width': `30px`, 'height': `30px`}"
                     class="moving-animal"
-                    :class="{[`moving-animal-${animal.slug}`]: true, 'vibrating': animal.close_to_timeout}"
+                    :class="{[`moving-animal-${animal.id}`]: true, 'vibrating': animal.close_to_timeout}"
                 >
                     <img :src="`/static/${animal.slug}/animated/back_${animal.shiny ? 'shiny' : 'default'}.gif`" class="animal-img">
                 </div>
@@ -480,7 +480,7 @@
                             this.movingAnimals[animalID] = animal;
                             this.movingAnimals[animalID].point = this.points[animal.location];
                             this.$nextTick(() => {
-                                const animalEl = document.querySelector(".moving-animal-" + animalSlug);
+                                const animalEl = document.querySelector(".moving-animal-" + animalID);
                                 if (!animalEl) {
                                     return
                                 }
