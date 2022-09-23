@@ -5,6 +5,7 @@ import datetime
 import random
 import logging
 from decimal import Decimal
+import hashlib
 
 
 from typing import List, Optional
@@ -139,10 +140,13 @@ for pokemon_name, pokemon in pokemons_table.items():
     
     pokemon_number = pokemon['api_url'].split('/')[-2]
 
+    index = int(pokemon_number)
+    index_hash = int(hashlib.sha256(str(index).encode('utf-8')).hexdigest(), 16) % len(FRUIT_SLUGS)
+
     animal = Animal(
         slug=pokemon_name,
         name=pokemon_name.capitalize(),
-        fruit_slug=FRUIT_SLUGS[(len(animals_table) % len(FRUIT_SLUGS))],
+        fruit_slug=FRUIT_SLUGS[index_hash],
         fruit=0,
         eating_speed=15,
         experience=0,
@@ -154,7 +158,7 @@ for pokemon_name, pokemon in pokemons_table.items():
         target=None,
         target_time=None,
         filled=False,
-        index=int(pokemon_number),
+        index=index,
     )
     animals_table[animal.id] = animal
     logger.info("Loaded pokemon %s, evolution: %s", pokemon_name, pokemon.get('evolution'))
@@ -180,7 +184,8 @@ for pokemon_name, pokemon in pokemons_table.items():
 
 
 
-animals_table[0] = Animal(
+animals_table[-1] = Animal(
+    id=-1,
     slug="burglar",
     name="Varas",
     fruit_slug='watermelon',
@@ -709,10 +714,10 @@ def animal_new_target(animal, old_location=None):
 
 def handle_animal_spawns(to_spawn):
     logger.info("Spawning %s animals", to_spawn)
-    unique_shleved_animals = set()
+    unique_shelved_slugs = set()
     for shelved_animal in shelved_animals_table.values():
-        unique_shleved_animals.add(shelved_animal.slug)
-    unique_shleved_animals = len(unique_shleved_animals) - 1
+        unique_shelved_slugs.add(shelved_animal.slug)
+    unique_shleved_animals = len(unique_shelved_slugs) - 1
     if unique_shleved_animals < 0:
         unique_shleved_animals = 0
     
@@ -730,8 +735,8 @@ def handle_animal_spawns(to_spawn):
                 unique_animals,
                 key=lambda _animal: _animal.index
             )
-            if animal.spawns and animal.index
-        ])[unique_shleved_animals:unique_shleved_animals+3]
+            if animal.spawns and animal.index and animal.slug not in unique_shelved_slugs
+        ])[:unique_shleved_animals+2]
     )
 
     for animal in spawned_animals_table.values():
@@ -836,7 +841,10 @@ def handle_animal_evolve(animal):
         animal.spawns = False
         animals_table[animal.id] = animal
         active_animals_table.pop(animal.id)
-        animal = animals_table[animal.evolution_id]
+        new_animal = animals_table[animal.evolution_id]
+        if new_animal.slug == "burglar":
+            logger.warning("Somehow, a burglar evolved from %s", animal.slug)
+        animal = new_animal
         animal.shiny = shiny
         animal.active = True
         animal.egg = False
@@ -870,7 +878,7 @@ def handle_animal_eating(animal):
         logger.info("%s ate a %s: %s left", animal.name, animal.fruit_slug, animal.fruit)
         animal.experience += 1
     animal.level = int(animal.experience)
-    if animal.level >= (int(animal.index / 10) + 1):
+    if animal.level >= (int(animal.index / 20) + 1):
         animal.filled = True
 
     active_animals_table[animal.id] = animal
