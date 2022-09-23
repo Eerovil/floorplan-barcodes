@@ -187,9 +187,9 @@
             <div id="animals">
                 <div v-for="(animal, key) in animals" :id="`animal-${cleanCode(key)}`" class="animal-wrapper">
                     <img style="height: 18px" :src="`/static/${animal.fruit_slug}.png`">
-                    <span class="animal" :class="{[animal.slug]: true, 'vibrating': animal.close_to_timeout}" :style="{'width': `${80 + animal.level*30}px`}">
+                    <span class="animal" :class="{[animal.slug]: true, 'vibrating': animal.filled}" :style="{'width': `${80 + animal.level*30}px`}">
                         <img v-if="animal.egg" :src="`/static/egg.png`" class="animal-img" :class="{vibrating: shaking}">
-                        <img v-else :src="`/static/${animal.slug}/animated/front_${animal.shiny ? 'shiny' : 'default'}.gif`" class="animal-img">
+                        <img v-else :src="`/static/${animal.slug}/animated/${animal.fruit ? 'back' : 'front'}_${animal.shiny ? 'shiny' : 'default'}.gif`" class="animal-img">
 
                     </span>
                     <img class="fruit" v-for="index in animal.fruit" :key="index" :src="`/static/${animal.fruit_slug}.png`" :class="{'newFruit': (index == (animal.fruit) && animal.newFruitFrom) }">
