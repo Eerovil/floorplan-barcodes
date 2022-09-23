@@ -40,6 +40,7 @@ class Animal(BaseModel):
     active = False
     spawned = False
     spawns = True
+    id: int
     slug: str
     name = 'Nimi'
     fruit_slug: str
@@ -57,8 +58,13 @@ class Animal(BaseModel):
     timeout: Optional[datetime.datetime]  # When this animal is going to be removed from the game
     shiny = False
     filled = False
-    egg = True
+    egg = False
+    index = 0
 
+    def __init__(self, **data):
+        if not data.get('id'):
+            data['id'] = len(animals_table)
+        super().__init__(**data)
 
 class Player(BaseModel):
     name = ''
@@ -112,17 +118,17 @@ powerups_table['sun'] = Powerup(
 
 
 # Load pokemons
-for animal_slug in list(animals_table.keys()):
-    del animals_table[animal_slug]
+for animal_id in list(animals_table.keys()):
+    del animals_table[animal_id]
 
-for animal_slug in list(active_animals_table.keys()):
-    del active_animals_table[animal_slug]
+for animal_id in list(active_animals_table.keys()):
+    del active_animals_table[animal_id]
 
-for animal_slug in list(spawned_animals_table.keys()):
-    del spawned_animals_table[animal_slug]
+for animal_id in list(spawned_animals_table.keys()):
+    del spawned_animals_table[animal_id]
 
-for animal_slug in list(shelved_animals_table.keys()):
-    del shelved_animals_table[animal_slug]
+for animal_id in list(shelved_animals_table.keys()):
+    del shelved_animals_table[animal_id]
 
 for pokemon_name, pokemon in pokemons_table.items():
     front_default = os.path.join(data_folder, pokemon_name, 'animated', 'front_default.gif')
@@ -130,10 +136,12 @@ for pokemon_name, pokemon in pokemons_table.items():
         logger.info("Skipping pokemon %s, no images", pokemon_name)
         continue
     
+    pokemon_number = pokemon['api_url'].split('/')[-2]
+
     animals_table[pokemon_name] = Animal(
         slug=pokemon_name,
         name=pokemon_name.capitalize(),
-        fruit_slug='watermelon',
+        fruit_slug=FRUIT_SLUGS[(len(animals_table) % len(FRUIT_SLUGS))],
         fruit=0,
         eating_speed=15,
         experience=0,
@@ -144,7 +152,8 @@ for pokemon_name, pokemon in pokemons_table.items():
         location=None,
         target=None,
         target_time=None,
-        filled=False
+        filled=False,
+        index=int(pokemon_number),
     )
     logger.info("Loaded pokemon %s, evolution: %s", pokemon_name, pokemon.get('evolution'))
 
@@ -156,6 +165,7 @@ for pokemon_name, pokemon in pokemons_table.items():
     next_evolution = animals_table[pokemon['evolution']]
     next_evolution.spawns = False
     animals_table[pokemon['evolution']] = next_evolution
+
 
 
 animals_table["burglar"] = Animal(
@@ -503,7 +513,7 @@ def handle_fruit_collected(point, timeout=False):
                     animal.fruit += 2
                 animal.last_source = point.barcode
                 animal.timeout = datetime.datetime.now() + datetime.timedelta(seconds=ANIMAL_TIMEOUT)
-                active_animals_table[animal.slug] = animal
+                active_animals_table[animal.id] = animal
                 point.fruit = None
                 point.fruit_death = datetime.datetime.now()
                 handled = True
@@ -687,10 +697,61 @@ def animal_new_target(animal, old_location=None):
 
 def handle_animal_spawns(to_spawn):
     logger.info("Spawning %s animals", to_spawn)
+    unique_shleved_animals = set()
+    for shelved_animal in shelved_animals_table.values():
+        unique_shleved_animals.add(shelved_animal.slug)
+    unique_shleved_animals = len(unique_shleved_animals) - 1
+    if unique_shleved_animals < 0:
+        unique_shleved_animals = 0
+    
+    unique_animals = list()
+    used_slugs = set()
+    for animal in animals_table.values():
+        if animal.slug not in used_slugs:
+            unique_animals.append(animal)
+            used_slugs.add(animal.slug)
+
+    available_slugs = (
+        list([
+            animal.slug
+            for animal in sorted(
+                unique_animals,
+                key=lambda _animal: _animal.index
+            )
+            if animal.spawns and animal.index
+        ])[unique_shleved_animals:unique_shleved_animals+3]
+    )
+
+    for animal in spawned_animals_table.values():
+        if animal.slug == "burglar":
+            break
+    else:
+        available_slugs += ["burglar"]
+
+    # Count unspanwed, initialized animals
     available_animals = [
         animal for animal in animals_table.values()
-        if animal.slug not in active_animals_table and animal.slug not in spawned_animals_table and animal.spawns
+        if (
+            animal.id not in active_animals_table and
+            animal.id not in spawned_animals_table and
+            animal.spawns and
+            animal.slug in available_slugs
+        )
     ]
+
+    if len(available_animals) < to_spawn:
+        logger.info("Not enough animals to spawn, initializing more")
+        for _ in range(to_spawn - len(available_animals)):
+            animal_slug = random.choice(available_slugs)
+            animal = [
+                _animal for _animal in animals_table.values()
+                if _animal.slug == animal_slug
+            ][0]
+            animal = animal.copy()
+            animal.id = len(animals_table)
+            animals_table[animal.id] = animal
+            available_animals.append(animal)
+
     if any(animal.slug == 'burglar' for animal in available_animals):
         burglar = [animal for animal in available_animals if animal.slug == 'burglar'][0]
         to_spawn = random.choices(available_animals, k=(to_spawn - 1)) + [burglar]
@@ -702,17 +763,17 @@ def handle_animal_spawns(to_spawn):
         animal.location = random.choice(list(codes_table.keys()))
         animal_new_target(animal)
         animal.timeout = datetime.datetime.now() + datetime.timedelta(seconds=random.randint(60, ANIMAL_TIMEOUT))
-        animals_table[animal.slug] = animal
-        spawned_animals_table[animal.slug] = animal
+        animals_table[animal.id] = animal
+        spawned_animals_table[animal.id] = animal
         logger.info("Animal spawned: %s", animal.slug)
 
 
 def handle_spawned_animal(animal):
     if animal.timeout and animal.timeout < datetime.datetime.now() and animal.slug != "burglar":
-        logger.info("Animal %s timeout", animal.slug)
+        logger.info("Animal %s: %s timeout", animal.slug, animal.id)
         animal.timeout = None
         animal.spawned = False
-        spawned_animals_table.pop(animal.slug)
+        spawned_animals_table.pop(animal.id)
         return
 
     if animal.target and animal.target_time:
@@ -727,8 +788,10 @@ def handle_spawned_animal(animal):
                     try:
                         stolen_animal = spawned_animals_table[point.fruit.replace('animal-', '')]
                         stolen_animal.timeout = datetime.datetime.now()
-                        spawned_animals_table[stolen_animal.slug] = stolen_animal
-                        logger.info("Animal %s stolen by %s", stolen_animal.slug, animal.slug)
+                        spawned_animals_table[stolen_animal.id] = stolen_animal
+                        logger.info(
+                            "Animal %s:%s stolen by %s", stolen_animal.slug, stolen_animal.id, animal.slug
+                        )
                     except KeyError:
                         point.fruit = None
 
@@ -741,7 +804,7 @@ def handle_spawned_animal(animal):
                 old_location = animal.location
                 animal.location = animal.target
                 animal_new_target(animal, old_location=old_location)
-            spawned_animals_table[animal.slug] = animal
+            spawned_animals_table[animal.id] = animal
 
 
 def handle_animal_evolve(animal):
@@ -749,31 +812,34 @@ def handle_animal_evolve(animal):
         animal.active = False
         fruit_slug = animal.fruit_slug
         shiny = animal.shiny or False
+        fruit_count = animal.fruit
         animal.fruit = 0
         animal.spawns = False
-        animals_table[animal.slug] = animal
-        active_animals_table.pop(animal.slug)
+        animals_table[animal.id] = animal
+        active_animals_table.pop(animal.id)
         animal = animals_table[animal.evolution]
         animal.shiny = shiny
         animal.active = True
         animal.egg = False
-        animal.fruit = 0
+        animal.fruit = fruit_count - 1
+        if animal.fruit < 0:
+            animal.fruit = 0
         animal.filled = False
         animal.fruit_slug = fruit_slug
-        active_animals_table[animal.slug] = animal
+        active_animals_table[animal.id] = animal
     else:
-        active_animals_table.pop(animal.slug)
-        shelved_animals_table[animal.slug] = animal
+        active_animals_table.pop(animal.id)
+        shelved_animals_table[animal.id] = animal
         animal.spawns = False
-        animals_table[animal.slug] = animal
+        animals_table[animal.id] = animal
 
 
 def handle_animal_eating(animal):
     if animal.timeout and animal.timeout < datetime.datetime.now():
-        logger.info("Animal %s timeout", animal.slug)
+        logger.info("Animal %s:%s timeout", animal.slug, animal.id)
         animal.timeout = None
         animal.active = False
-        active_animals_table.pop(animal.slug)
+        active_animals_table.pop(animal.id)
         return
 
     if not animal.fruit or animal.fruit < 1:
@@ -785,10 +851,10 @@ def handle_animal_eating(animal):
         logger.info("%s ate a %s: %s left", animal.name, animal.fruit_slug, animal.fruit)
         animal.experience += 1
     animal.level = int(animal.experience)
-    if animal.level >= 1:
+    if animal.level >= int(animal.index / 10):
         animal.filled = True
 
-    active_animals_table[animal.slug] = animal
+    active_animals_table[animal.id] = animal
 
 
 def handle_animal_collected(animal):
@@ -810,10 +876,9 @@ def handle_animal_collected(animal):
     for active_animal in active_animals_table.values():
         if active_animal.active and active_animal.fruit_slug in fruits_available:
             fruits_available.remove(active_animal.fruit_slug)
-    animal.fruit_slug = random.choice(fruits_available)
-    active_animals_table[animal.slug] = animal
-    if animal.slug in spawned_animals_table:
-        del spawned_animals_table[animal.slug]
+    active_animals_table[animal.id] = animal
+    if animal.id in spawned_animals_table:
+        del spawned_animals_table[animal.id]
     logger.info("%s collected: %s", animal.name, animal.fruit_slug)
 
 
@@ -858,7 +923,7 @@ def game_tick():
         for key, animal in spawned_animals_table.items():
             handle_spawned_animal(animal)
 
-        animal_to_spawn = 4 - len(spawned_animals_table) - len(active_animals_table)
+        animal_to_spawn = 6 - len(spawned_animals_table) - len(active_animals_table)
         if animal_to_spawn > 0 and main_table['last_tick'] > datetime.datetime.now() - datetime.timedelta(seconds=10):
             # Only spawn animals every 10 seconds
             handle_animal_spawns(1)
@@ -925,8 +990,19 @@ def mark_barcodes():
 
     logger.info("player visited %s", barcode)
     ret = 'Ruokaa ei löytynyt'
+
+    def pokemon_eats_fruit(fruit_slug):
+        for animal in active_animals_table.values():
+            if animal.fruit_slug == fruit_slug:
+                return True
+        return False
+
+
     if point.fruit:
-        ret = 'Hyvä, löysit '
+        if point.fruit not in FRUIT_SLUGS or pokemon_eats_fruit(point.fruit):
+            ret = 'Hyvä, löysit '
+        else:
+            ret = 'Nam, söit itse '
         if point.super_fruit or 'super_fruits' in active_powerups():
             ret += 'ison '
         if point.fruit == 'watermelon':
@@ -1017,6 +1093,6 @@ def post_event():
                     animal.egg = False
                     animal.experience = 0
                     animal.level = 0
-                active_animals_table[animal.slug] = animal
+                active_animals_table[animal.id] = animal
 
     return 'ok'
