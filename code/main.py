@@ -1072,7 +1072,7 @@ def get_hint(point):
             interesting_animals.add(animal.slug)
 
     for _point in points_by_distance:
-        if _point.fruit in interesting_fruit:
+        if _point.fruit in interesting_fruit and not _point.gift:
             ret += '. {} olisi {}!'.format(point_names.get(_point.barcode), fruit_names.get(_point.fruit, _point.fruit))
             break
     else:
@@ -1082,9 +1082,14 @@ def get_hint(point):
                 break
         else:
             for _point in points_by_distance:
-                if _point.fruit and not _point.fruit.startswith('animal-') and _point.fruit != "burglar" and _point.fruit not in FRUIT_SLUGS:
+                if _point.fruit and not _point.fruit.startswith('animal-') and _point.fruit != "burglar" and _point.fruit not in FRUIT_SLUGS and not _point.gift:
                     ret += '. {} olisi {}!'.format(point_names.get(_point.barcode), fruit_names.get(_point.fruit, _point.fruit))
                     break
+            else:
+                for _point in points_by_distance:
+                    if _point.fruit and not _point.fruit.startswith('animal-') and _point.fruit != "burglar" and _point.gift:
+                        ret += '. {} olisi yllätys!'.format(point_names.get(_point.barcode))
+                        break
 
     if ret.startswith('.'):
         ret = ret[1:]
