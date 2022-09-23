@@ -8,6 +8,8 @@
 
     <meta name="mobile-web-app-capable" content="yes">
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/combine/npm/tone@14.7.58,npm/@magenta/music@1.23.1/es6/core.js,npm/focus-visible@5,npm/html-midi-player@1.5.0"></script>
+
     <style>
       html {
         height: 100%;
@@ -44,6 +46,11 @@
   </head>
   <body>
     <div id="wrapper">
+      <midi-player
+      style="display: none;"
+      src="/static/trainer-battle-2.mid"
+      id="midi-player"
+        ></midi-player>
       <div id="iframe-wrapper">
         <iframe src="/"></iframe>
       </div>
@@ -95,6 +102,27 @@
           oscillator.start(context.currentTime);
           oscillator.stop(context.currentTime + duration * 0.001);
       }
+      const melody = (beeps) => {
+        context = new AudioContext();
+        let time = 0;
+        for (const _beep of beeps) {
+          if (!_beep[0]) {
+            // No freq, just add time
+          } else {
+            console.log("Beep", _beep, time);
+            setTimeout(() => beep(_beep[0], _beep[1]), time);
+          }
+          time += _beep[1];
+        }
+      }
+      const playMusic = () => {
+        const player = document.getElementById("midi-player");
+        if (player.playing) {
+          return;
+        }
+        player.loop = true;
+        player.start();
+      }
       const speak = (text) => {
         const utter = new SpeechSynthesisUtterance();
         utter.lang = 'fi-FI';
@@ -118,9 +146,8 @@
         setTimeout(() => {
           lastDetId = null
         }, 3000)
-
-        context = new AudioContext();
-        beep();
+        playMusic();
+        melody([[440, 100], [554.37, 100], [659.25, 100]])
         axios.post('/api/mark', {barcode: content}).then(function (response) {
           console.log(response);
           if (window.speechSynthesis) {
