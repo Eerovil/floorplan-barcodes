@@ -51,6 +51,7 @@ class Animal(BaseModel):
     start_eating: datetime.datetime
     last_source: Optional[str]  # Where this animal last received a fruit from
     evolution: Optional[str]  # Slug of the animal that this animal evolves into
+    evolution_id: Optional[int]
     location: Optional[str]  # Slug of the point where this animal is currently located
     target: Optional[str]  # Slug of the point or map point where this animal is going
     real_target: Optional[str]  # Slug of the point where this animal is going
@@ -138,7 +139,7 @@ for pokemon_name, pokemon in pokemons_table.items():
     
     pokemon_number = pokemon['api_url'].split('/')[-2]
 
-    animals_table[pokemon_name] = Animal(
+    animal = Animal(
         slug=pokemon_name,
         name=pokemon_name.capitalize(),
         fruit_slug=FRUIT_SLUGS[(len(animals_table) % len(FRUIT_SLUGS))],
@@ -155,20 +156,31 @@ for pokemon_name, pokemon in pokemons_table.items():
         filled=False,
         index=int(pokemon_number),
     )
+    animals_table[animal.id] = animal
     logger.info("Loaded pokemon %s, evolution: %s", pokemon_name, pokemon.get('evolution'))
 
 for pokemon_name, pokemon in pokemons_table.items():
     if 'evolution' not in pokemon:
         continue
-    if pokemon['evolution'] not in animals_table:
-        continue
-    next_evolution = animals_table[pokemon['evolution']]
+
+    for animal in animals_table.values():
+        if animal.slug == pokemon['evolution']:
+            next_evolution = animal
+            break
     next_evolution.spawns = False
-    animals_table[pokemon['evolution']] = next_evolution
+    animals_table[next_evolution.id] = next_evolution
+
+    for animal in animals_table.values():
+        if animal.slug == pokemon_name:
+            animal.evolution_id = next_evolution.id
+            animals_table[animal.id] = animal
+            break
+    else:
+        raise Exception("Could not find pokemon %s", pokemon_name)
 
 
 
-animals_table["burglar"] = Animal(
+animals_table[0] = Animal(
     slug="burglar",
     name="Varas",
     fruit_slug='watermelon',
@@ -742,13 +754,20 @@ def handle_animal_spawns(to_spawn):
     if len(available_animals) < to_spawn:
         logger.info("Not enough animals to spawn, initializing more")
         for _ in range(to_spawn - len(available_animals)):
-            animal_slug = random.choice(available_slugs)
+            animal_slug = random.choice([slug for slug in available_slugs if slug != "burglar"])
             animal = [
                 _animal for _animal in animals_table.values()
                 if _animal.slug == animal_slug
             ][0]
             animal = animal.copy()
-            animal.id = len(animals_table) + 1
+            animal.id = max(int(_key) for _key in animals_table.keys()) + 1
+            if animal.evolution:
+                # Also copy evolution
+                evolution_animal = animals_table[animal.evolution_id]
+                evolution_animal = evolution_animal.copy()
+                evolution_animal.id = max(int(_key) for _key in animals_table.keys()) + 2
+                animals_table[evolution_animal.id] = evolution_animal
+                animal.evolution_id = evolution_animal.id
             animals_table[animal.id] = animal
             available_animals.append(animal)
 
@@ -817,7 +836,7 @@ def handle_animal_evolve(animal):
         animal.spawns = False
         animals_table[animal.id] = animal
         active_animals_table.pop(animal.id)
-        animal = animals_table[animal.evolution]
+        animal = animals_table[animal.evolution_id]
         animal.shiny = shiny
         animal.active = True
         animal.egg = False
