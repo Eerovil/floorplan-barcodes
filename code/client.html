@@ -124,6 +124,7 @@
         }
       }
       const speak = (text) => {
+        console.log(text);
         const utter = new SpeechSynthesisUtterance();
         utter.lang = 'fi-FI';
         utter.text = text;
@@ -136,6 +137,8 @@
         speechSynthesis.getVoices();
       }
       let lastDetId = null
+      window.document.addEventListener('speak', (data) => speak(data.detail), false)
+
 
       window.handleDetected = (det) => {
         const content = `http://koodi-${det.id + 1}`
@@ -149,7 +152,6 @@
         playMusic();
         melody([[440, 100], [554.37, 100], [659.25, 100]])
         axios.post('/api/mark', {barcode: content}).then(function (response) {
-          console.log(response);
           if (window.speechSynthesis) {
             speak(response.data);
           }

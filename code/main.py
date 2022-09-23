@@ -72,6 +72,7 @@ class Player(BaseModel):
     name = ''
     ip_address: str
     last_seen: datetime.datetime
+    last_hint: Optional[datetime.datetime]
     history: List[str]
 
 
@@ -163,6 +164,13 @@ for pokemon_name, pokemon in pokemons_table.items():
     animals_table[animal.id] = animal
     logger.info("Loaded pokemon %s, evolution: %s", pokemon_name, pokemon.get('evolution'))
 
+pokemon_roots = {}
+def get_pokemon_root(slug):
+    if slug in pokemon_roots:
+        return pokemon_roots[slug]
+    return slug
+
+
 for pokemon_name, pokemon in pokemons_table.items():
     if 'evolution' not in pokemon:
         continue
@@ -173,6 +181,11 @@ for pokemon_name, pokemon in pokemons_table.items():
             break
     next_evolution.spawns = False
     animals_table[next_evolution.id] = next_evolution
+
+    if pokemon_name not in pokemon_roots:
+        pokemon_roots[next_evolution.slug] = pokemon_name
+    else:
+        pokemon_roots[next_evolution.slug] = pokemon_roots[pokemon_name]
 
     for animal in animals_table.values():
         if animal.slug == pokemon_name:
@@ -242,17 +255,20 @@ INITIAL_CODES = [
     'http://koodi-11',
     'http://koodi-12',
 ]
-ANIMAL_SKIP_CODES = ['http://koodi-6']
+HOME_CODE = 'http://koodi-6'
+ANIMAL_SKIP_CODES = [HOME_CODE]
 for initial_code in INITIAL_CODES:
     if initial_code not in codes_table:
         codes_table[initial_code] = _init_row(initial_code)
+
+
 
 
 point_names = {
     'http://koodi-1': 'Eteisessä',
     'http://koodi-2': 'Sohvan takana',
     'http://koodi-3': 'Savupiipussa',
-    'http://koodi-4': 'Vaatehuoneessa',
+    'http://koodi-4': 'Kodinhoitohuoneessa',
     'http://koodi-5': 'Jääkaapissa',
     'http://koodi-6': 'Telkkarin Luona',
     'http://koodi-7': 'Kuivausrummussa',
@@ -260,7 +276,7 @@ point_names = {
     'http://koodi-9': 'Saunassa',
     'http://koodi-10': 'Makuuhuoneessa',
     'http://koodi-11': 'Valtterin huoneessa',
-    'http://koodi-12': 'Kodinhoitohuoneessa',
+    'http://koodi-12': 'Vaatehuoneessa',
 }
 
 
@@ -535,8 +551,9 @@ def handle_fruit_collected(point, timeout=False):
                 point.fruit_death = datetime.datetime.now()
                 handled = True
         else:
-            logger.warning("Fruit %s not found in any table", point.fruit)
+            logger.info("Fruit %s not eaten by any animal", point.fruit)
             point.fruit = None
+            point.fruit_death = datetime.datetime.now()
     
     codes_table[point.barcode] = point
 
@@ -915,6 +932,7 @@ def table_to_dict(_dict):
 
 @app.route("/api/tick")
 def game_tick():
+    hint = None
 
     if not main_table['ACTIVE_PLAYING_CURRENT'] or (main_table['ACTIVE_PLAYING_CURRENT'] - datetime.datetime.now()).total_seconds() > 5 * 60:
         main_table['ACTIVE_PLAYING_START'] = None
@@ -963,6 +981,23 @@ def game_tick():
 
         for key in dead_players:
             del players_table[key]
+        
+        ip_address = request.remote_addr
+        player = players_table.get(ip_address)
+        if player:
+            potential_hint = get_hint(codes_table[HOME_CODE])
+            if not potential_hint and player.last_seen > datetime.datetime.now() - datetime.timedelta(seconds=120):
+                # If there is no hint, "clear the timeout" for showing a hint immediately as one is available
+                player.last_seen = datetime.datetime.now() - datetime.timedelta(seconds=25)
+                players_table[ip_address] = player
+
+            if potential_hint:
+                if player.last_seen < datetime.datetime.now() - datetime.timedelta(seconds=20):
+                    if not getattr(player, "last_hint", None) or player.last_hint < datetime.datetime.now() - datetime.timedelta(seconds=20):
+                        player.last_hint = datetime.datetime.now()
+                        players_table[ip_address] = player
+                        hint = potential_hint
+                        logger.info("Hint: %s", hint)
 
     codes = table_to_dict(codes_table)
 
@@ -990,7 +1025,71 @@ def game_tick():
         "spawned_animals": spawned_animals,
         "shelved_animals": table_to_dict(shelved_animals_table),
         "shaking": shaking,
+        "hint": hint,
     }
+
+
+def get_hint(point):
+    ret = ""
+
+    filled_animals = []
+    for animal in active_animals_table.values():
+        if animal.filled:
+            filled_animals.append(animal)
+
+    if len(filled_animals) == 1:
+        ret += ". {} on syönyt".format(filled_animals[0].slug)
+    elif len(filled_animals) > 1:
+        ret += ". {} ovat syöneet".format(', '.join(animal.slug for animal in filled_animals[:-1]) + ' ja ' + filled_animals[-1].slug)
+
+    points_by_distance = [codes_table[_barcode] for _barcode in points_by_distance_table[point.barcode]]
+
+    fruit_names = {
+        "apple": "omena",
+        "carrot": "porkkana",
+        "watermelon": "vesimeloni",
+        "sandvich": "leipä",
+        "sun": "aurinko",
+        "super_fruits": "pullo",
+    }
+
+    interesting_fruit = set()
+    for animal in active_animals_table.values():
+        if animal.fruit_slug:
+            interesting_fruit.add(animal.fruit_slug)
+
+    shelved_animals = set()
+    for animal in shelved_animals_table.values():
+        shelved_animals.add(get_pokemon_root(animal.slug))
+    for animal in active_animals_table.values():
+        shelved_animals.add(get_pokemon_root(animal.slug))
+
+    interesting_animals = set()
+    for animal in spawned_animals_table.values():
+        if animal.slug == "burglar":
+            continue
+        if animal.slug not in shelved_animals:
+            interesting_animals.add(animal.slug)
+
+    for _point in points_by_distance:
+        if _point.fruit in interesting_fruit:
+            ret += '. {} olisi {}!'.format(point_names.get(_point.barcode), fruit_names.get(_point.fruit, _point.fruit))
+            break
+    else:
+        for _point in points_by_distance:
+            if _point.fruit and _point.fruit.startswith('animal-') and _point.fruit.replace('animal-', '') in interesting_animals:
+                ret += '. {} olisi {}!'.format(point_names.get(_point.barcode), _point.fruit.replace('animal-', ''))
+                break
+        else:
+            for _point in points_by_distance:
+                if _point.fruit and not _point.fruit.startswith('animal-') and _point.fruit != "burglar" and _point.fruit not in FRUIT_SLUGS:
+                    ret += '. {} olisi {}!'.format(point_names.get(_point.barcode), fruit_names.get(_point.fruit, _point.fruit))
+                    break
+
+    if ret.startswith('.'):
+        ret = ret[1:]
+
+    return ret
 
 
 @app.route("/api/mark", methods=['POST'])
@@ -1027,7 +1126,7 @@ def mark_barcodes():
 
     if point.fruit:
         if point.fruit not in FRUIT_SLUGS or pokemon_eats_fruit(point.fruit):
-            ret = 'Hyvä, löysit '
+            ret = 'Löysit '
         else:
             ret = 'Nam, söit itse '
         if point.super_fruit or 'super_fruits' in active_powerups():
@@ -1047,7 +1146,7 @@ def mark_barcodes():
         else:
             ret = ""
 
-    if point.barcode == 'http://koodi-6':
+    if point.barcode == HOME_CODE:
         for animal in active_animals_table.values():
             if not animal.egg and animal.filled:
                 will_evolve = bool(animal.evolution)
@@ -1065,35 +1164,19 @@ def mark_barcodes():
         if animal.real_target == point.barcode and animal.location == animal.real_target:
             handle_animal_collected(animal)
             if animal.slug == "burglar":
-                ret += ' voi ei! Varas!'
+                ret = ' voi ei! Varas!'
             else:
                 ret += ' sait munan!'
 
-    points_by_distance = [codes_table[_barcode] for _barcode in points_by_distance_table[point.barcode]]
 
-    fruit_names = {
-        "apple": "omena",
-        "carrot": "porkkana",
-        "watermelon": "vesimeloni",
-        "sandvich": "leipä",
-        "sun": "aurinko",
-        "super_fruits": "pullo",
-    }
-
-    for _point in points_by_distance:
-        if _point.fruit and not _point.fruit.startswith('animal-') and _point.fruit != "burglar":
-            ret += '. {} olisi {}!'.format(point_names.get(_point.barcode), fruit_names.get(_point.fruit, _point.fruit))
-            break
-
-    filled_animals = []
-    for animal in active_animals_table.values():
-        if animal.filled:
-            filled_animals.append(animal)
-
-    if len(filled_animals) == 1:
-        ret += ". Pokemonilla {} on maha täynnä".format(filled_animals[0].slug)
-    elif len(filled_animals) > 1:
-        ret += ". Pokemoneilla {} on maha täynnä".format(', '.join(animal.slug for animal in filled_animals[:-1]) + ' ja ' + filled_animals[-1].slug)
+    ret += ". "
+    hint = get_hint(point)
+    if not hint:
+        player.last_hint = None
+        player.last_seen = datetime.datetime.now() - datetime.timedelta(seconds=25)
+        players_table[ip_address] = player
+    else:
+        ret += hint
 
     main_table['ACTIVE_PLAYING_CURRENT'] = datetime.datetime.now()
     if not main_table['ACTIVE_PLAYING_START']:

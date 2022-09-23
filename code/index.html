@@ -314,6 +314,10 @@
                             if (this.modifyMap || this.showMap) {
                                 this.drawMap()
                             }
+                            if (window.parent && response.data.hint) {
+                                var event = new CustomEvent('speak', { detail: response.data.hint })
+                                window.parent.document.dispatchEvent(event)
+                            }
                         })
                         .catch(error => {
                             console.log(error);
