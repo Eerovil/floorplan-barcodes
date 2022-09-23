@@ -851,7 +851,7 @@ def handle_animal_eating(animal):
         logger.info("%s ate a %s: %s left", animal.name, animal.fruit_slug, animal.fruit)
         animal.experience += 1
     animal.level = int(animal.experience)
-    if animal.level >= int(animal.index / 10):
+    if animal.level >= (int(animal.index / 10) + 1):
         animal.filled = True
 
     active_animals_table[animal.id] = animal
