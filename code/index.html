@@ -426,7 +426,7 @@
                     const expectingEvolutions = {}
                     for (const oldAnimal of Object.values(this.animals)) {
                         if (oldAnimal.evolution) {
-                            expectingEvolutions[oldAnimal.evolution] = oldAnimal.slug;
+                            expectingEvolutions[oldAnimal.evolutio_id] = oldAnimal.slug;
                         }
                     }
                     for (const animalID in newAnimals) {
