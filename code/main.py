@@ -1071,15 +1071,19 @@ def mark_barcodes():
 
     points_by_distance = [codes_table[_barcode] for _barcode in points_by_distance_table[point.barcode]]
 
+    fruit_names = {
+        "apple": "omena",
+        "carrot": "porkkana",
+        "watermelon": "vesimeloni",
+        "sandvich": "leipä",
+        "sun": "aurinko",
+        "super_fruits": "pullo",
+    }
+
     for _point in points_by_distance:
-        if _point.fruit and _point.fruit.startswith('animal-'):
-            ret += '. Jotain olisi {}!'.format(point_names.get(_point.barcode))
+        if _point.fruit and not _point.fruit.startswith('animal-') and _point.fruit != "burglar":
+            ret += '. {} olisi {}!'.format(point_names.get(_point.barcode), fruit_names.get(_point.fruit, _point.fruit))
             break
-    else:
-        for _point in points_by_distance:
-            if _point.fruit:
-                ret += '. Jotain olisi {}'.format(point_names.get(_point.barcode))
-                break
 
     filled_animals = []
     for animal in active_animals_table.values():
