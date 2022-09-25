@@ -479,7 +479,7 @@
                         const animal = newAnimals[animalID];
                         const animalSlug = animal.slug;
                         if (expectingEvolutions[animalID]) {
-                            this.evolvingEvent(expectingEvolutions[animalID], animalSlug);
+                            this.evolvingEvent(animalID, expectingEvolutions[animalID], animalSlug);
                         }
                         animal.newFruitFrom = false;
                         if (this.animals[animalID]) {
@@ -546,16 +546,17 @@
                         }
                     }
                 },
-                evolvingEvent(from, to) {
-                    const eventSlug = from;
+                evolvingEvent(fromID, from, to) {
+                    const eventSlug = fromID;
                     this.evolving = {
+                        fromID: fromID,
                         from: from,
                         to: to,
                         progress: 0,
                     };
                     this.evolving.progress = 0
                     const progressFunc = () => {
-                        if (this.evolving.from != eventSlug) {
+                        if (this.evolving.fromID != eventSlug) {
                             return
                         }
                         this.evolving.progress += 7;
@@ -565,7 +566,7 @@
                             this.evolving.progress = 100
                             setTimeout(() => {
                                 // Prevent stuff when another event is created while this is running
-                                if (this.evolving.from != eventSlug) {
+                                if (this.evolving.fromID != eventSlug) {
                                     return
                                 }
                                 this.evolving = null;

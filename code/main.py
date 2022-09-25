@@ -935,6 +935,7 @@ def handle_animal_evolve(animal):
             animal.fruit = 0
         animal.filled = False
         animal.fruit_slug = fruit_slug
+        animal.timeout = datetime.datetime.now() + datetime.timedelta(seconds=ANIMAL_TIMEOUT)
         active_animals_table[animal.id] = animal
     else:
         active_animals_table.pop(animal.id)
@@ -970,6 +971,7 @@ def handle_animal_eating(animal):
 
 
 def handle_animal_collected(animal):
+    animal_to_steal = None
     if animal.slug == "burglar":
         if "handcuffs" not in active_powerups():
             # timeout a collected animal
@@ -978,7 +980,7 @@ def handle_animal_collected(animal):
                 animal_to_steal.timeout = datetime.datetime.now()
                 active_animals_table[key] = animal_to_steal
                 break
-            return
+            return animal_to_steal
     animal.active = True
     animal.filled = False
     animal.fruit = 0
@@ -1258,12 +1260,12 @@ def mark_barcodes():
 
     for key, animal in spawned_animals_table.items():
         if animal.real_target == point.barcode and animal.location == animal.real_target:
-            handle_animal_collected(animal)
+            stolen_animal = handle_animal_collected(animal)
             if animal.slug == "burglar":
                 if 'handcuffs' in active_powerups():
                     ret = " Hyvä! Sait varkaan kiinni!"
                 else:
-                    ret = ' voi ei! Varas!'
+                    ret = ' voi ei! Varas! Sinulta vietiin {}!'.format(stolen_animal.slug)
             else:
                 ret += ' sait munan!'
 

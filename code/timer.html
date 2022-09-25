@@ -20,20 +20,34 @@
         data: () => ({
             countdownStyle: {
                 animation: "countdown 10s linear infinite forwards"
-            }
+            },
+            refreshTimeout: null,
         }),
         mounted() {
-            let secsToTimeout = this.getSecondsDiff(new Date(), new Date(this.animal.timeout.replace("GMT", "")));
-
-            if (secsToTimeout < 1) {
-                secsToTimeout = 1;
-            }
-            this.countdownStyle = {
-                animation: `countdown ${this.animal.timeout_full_seconds}s linear infinite forwards`,
-                "animation-delay": `-${this.animal.timeout_full_seconds - secsToTimeout}s`,
-            }
+            this.refresh()
+        },
+        beforeDestroy() {
+            clearTimeout(this.refreshTimeout)
         },
         methods: {
+            refresh() {
+                try {
+                    let secsToTimeout = this.getSecondsDiff(new Date(), new Date(this.animal.timeout.replace("GMT", "")));
+
+                    if (secsToTimeout < 1) {
+                        secsToTimeout = 1;
+                    }
+                    this.countdownStyle = {
+                        animation: `countdown ${this.animal.timeout_full_seconds}s linear infinite forwards`,
+                        "animation-delay": `-${this.animal.timeout_full_seconds - secsToTimeout}s`,
+                    }
+                } catch(err) {
+                    console.log("Error setting countdown animation ", this.animal);
+                }
+                this.refreshTimeout = setTimeout(() => {
+                    this.refresh()
+                }, 1000)
+            },
             getSecondsDiff(startDate, endDate) {
                 const msInSecond = 1000;
 
