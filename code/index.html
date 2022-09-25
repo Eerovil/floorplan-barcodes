@@ -81,6 +81,8 @@
         }
         #wrapper {
             display: flex;
+        }
+        #wrapper.tv {
             flex-direction: column;
         }
         .moving-animal {
@@ -143,6 +145,8 @@
             max-width: 550px;
             display: flex;
             flex-wrap: wrap;
+        }
+        .tv #shelved_animals {
             top: 0;
         }
         #shelved_animals > div {
@@ -169,7 +173,7 @@
     <div id="vue-app">
     </div>
     <script type="template/html" id="template">
-        <div id="wrapper">
+        <div id="wrapper" :class="{tv: tvMode}">
             <img ref="img" src="/static/floorplan.jpg"></img>
             <svg ref="svg" id="svg-el"></svg>
             <div
@@ -189,8 +193,8 @@
             <div id="animals">
                 <div v-for="(animal, key) in animals" :id="`animal-${cleanCode(key)}`" class="animal-wrapper">
                     <img style="height: 18px" :src="`/static/${animal.fruit_slug}.png`">
-                    <span class="animal" :class="{[animal.slug]: true, 'vibrating': animal.filled }" :style="{'width': `${80 + animal.level*30}px`}">
-                        <img v-if="animal.egg" :src="`/static/egg.png`" class="animal-img">
+                    <span class="animal" :class="{[animal.slug]: true, 'vibrating': animal.filled}" :style="{'width': `${80 + animal.level*30}px`}">
+                        <img v-if="animal.egg" :src="`/static/egg.png`" class="animal-img" :class="{vibrating: shaking}">
                         <img v-else :src="`/static/${animal.slug}/animated/${animal.fruit ? 'back' : 'front'}_${animal.shiny ? 'shiny' : 'default'}.gif`" class="animal-img">
                     </span>
                     <img class="fruit" v-for="index in animal.fruit" :key="index" :src="`/static/${animal.fruit_slug}.png`" :class="{'newFruit': (index == (animal.fruit) && animal.newFruitFrom) }">
@@ -252,8 +256,13 @@
                 showMap: false,
 
                 shelveImage: 'front',
+
+                shaking: false,
+
+                tvMode: false,
             }),
             mounted() {
+                this.tvMode = window.location.href.includes('tv');
                 //this.evolvingEvent('pichu', 'pikachu');
                 let entries = new URLSearchParams(window.location.search);
                 const result = {}
@@ -308,6 +317,7 @@
                             this.points = response.data.codes;
                             this.powerups = response.data.powerups;
                             this.shelvedAnimals = response.data.shelved_animals;
+                            this.shaking = response.data.shaking;
                             this.handleMovingAnimals(response.data.spawned_animals)
                             this.handleAnimals(response.data.animals)
                             this.handlePlayers();

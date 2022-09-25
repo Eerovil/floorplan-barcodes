@@ -401,7 +401,7 @@ def hello_world():
 
 @app.route("/tv")
 def tv_html():
-    return render_template("tv.html", title = 'App')
+    return render_template("index.html", title = 'App')
 
 
 @app.route("/client")
