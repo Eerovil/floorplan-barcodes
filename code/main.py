@@ -581,8 +581,8 @@ def respawn_fruit(point, powerup_only=False, fruit_slug=None):
         if powerup.start_time + datetime.timedelta(seconds=powerup.cooldown) > datetime.datetime.now():
             continue
         if powerup.slug == "sun":
-            if len(list(_point for _point in codes_table.values() if _point.fruit and not _point.fruit.startswith("animal"))) > 1:
-                # Sun is available only if just one or no fruit is on the map
+            if len(list(_point for _point in codes_table.values() if _point.fruit and not _point.fruit.startswith("animal"))) > 2:
+                # Sun is available only if just two, one or no fruit is on the map
                 continue
         if powerup.slug == "super_fruits":
             if len(list(_point for _point in codes_table.values() if _point.fruit and not _point.fruit.startswith("animal") and point.fruit != "sun")) == 0:
@@ -846,6 +846,16 @@ def handle_spawned_animal(animal):
                         )
                     except KeyError:
                         point.fruit = None
+                elif point.fruit and point.fruit == "burglar":
+                    try:
+                        stolen_animal = animal
+                        stolen_animal.timeout = datetime.datetime.now()
+                        spawned_animals_table[stolen_animal.id] = stolen_animal
+                        logger.info(
+                            "Animal %s:%s stolen by 'burglar'", stolen_animal.slug, stolen_animal.id
+                        )
+                    except KeyError:
+                        pass
 
                 handle_fruit_collected(point, timeout=True)
                 point.fruit_timeout = animal.target_time or datetime.datetime.now()
@@ -964,7 +974,7 @@ def game_tick():
                 continue
             if point.barcode in get_not_play_area_codes():
                 continue
-            if not point.fruit_death or point.fruit_death < (datetime.datetime.now() - datetime.timedelta(seconds=30)):
+            if not point.fruit_death or point.fruit_death < (datetime.datetime.now() - datetime.timedelta(seconds=10)):
                 respawn_fruit(point, powerup_only=True)
 
         for key, powerup in powerups_table.items():
