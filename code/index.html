@@ -82,7 +82,7 @@
         #wrapper {
             display: flex;
         }
-        #wrapper.tv {
+        #wrapper.mobile {
             flex-direction: column;
         }
         .moving-animal {
@@ -146,7 +146,7 @@
             display: flex;
             flex-wrap: wrap;
         }
-        .tv #shelved_animals {
+        .mobile #shelved_animals {
             top: 0;
         }
         #shelved_animals > div {
@@ -173,7 +173,7 @@
     <div id="vue-app">
     </div>
     <template id="template">
-        <div id="wrapper" :class="{tv: tvMode}">
+        <div id="wrapper" :class="{mobile: !tvMode}">
             <img ref="img" src="/static/floorplan.jpg"></img>
             <svg ref="svg" id="svg-el"></svg>
             <div

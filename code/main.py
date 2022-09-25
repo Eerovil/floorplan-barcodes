@@ -140,7 +140,7 @@ powerups_table['handcuffs'] = Powerup(
     slug='handcuffs',
     name='Käsiraudat',
     duration=60,
-    cooldown=60 * 5,
+    cooldown=60 * 2,
     active=False,
     available=True,
     start_time=datetime.datetime.now() - datetime.timedelta(days=1),
