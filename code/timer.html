@@ -24,8 +24,11 @@
         }),
         mounted() {
             console.log("Hello timercomponent: ", this.animal);
-            const secsToTimeout = Math.abs(this.getSecondsDiff(new Date(this.animal.timeout.replace("GMT", "")), new Date()));
+            let secsToTimeout = this.getSecondsDiff(new Date(), new Date(this.animal.timeout.replace("GMT", "")));
             console.log("secsToTimeout", secsToTimeout);
+            if (secsToTimeout < 1) {
+                secsToTimeout = 1;
+            }
             this.countdownStyle = {
                 animation: `countdown ${this.animal.timeout_full_seconds}s linear infinite forwards`,
                 "animation-delay": `-${this.animal.timeout_full_seconds - secsToTimeout}s`,
@@ -36,7 +39,7 @@
                 const msInSecond = 1000;
 
                 return Math.round(
-                    Math.abs(endDate - startDate) / msInSecond
+                    (endDate - startDate) / msInSecond
                 );
             }
         },

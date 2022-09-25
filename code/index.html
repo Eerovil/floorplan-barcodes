@@ -81,6 +81,7 @@
         }
         #wrapper {
             display: flex;
+            position: relative;
         }
         #wrapper.mobile {
             flex-direction: column;
@@ -128,6 +129,22 @@
             width: 10%;
             height: 5px;
             background-color: green;
+        }
+        #powerups {
+            width: 100%;
+            background-color: white;
+            display: flex;
+            position: absolute;
+            bottom: -100px;
+            height: 120px;
+        }
+        #powerups .powerup-wrapper {
+            border: 1px solid black;
+            padding: 0.5rem;
+            margin-right: 0.5rem;
+        }
+        #powerups img.powerup {
+            height: 50px;
         }
         #evolving {
             width: 100%;
@@ -190,6 +207,12 @@
                 <img v-if="point.fruit && !point.fruit.startsWith('animal')" :src="`/static/${(point.gift ? 'gift' : point.fruit)}.png`" class="fruit" :class="{'super-fruit': point.super_fruit || superFruits, vibrating: point.close_to_timeout}">
             </div>
             <div v-for="(player, key) in players" :id="`player-${cleanCode(key)}`" class="player"></div>
+            <div id="powerups">
+                <div v-for="powerup in Object.values(powerups).filter(p => p.active)" :key="powerup.slug" class="powerup-wrapper">
+                    <img :src="`/static/${powerup.slug}.png`" class="powerup">
+                    <timer-component :animal="powerup"></timer-component>
+                </div>
+            </div>
             <div id="animals">
                 <div v-for="(animal, key) in animals" :id="`animal-${cleanCode(key)}`" class="animal-wrapper">
                     <img style="height: 18px" :src="`/static/${animal.fruit_slug}.png`">

@@ -937,6 +937,9 @@ def handle_animal_eating(animal):
         active_animals_table.pop(animal.id)
         return
 
+    if animal.egg:
+        return
+
     if not animal.fruit or animal.fruit < 1:
         animal.fruit = 0
     elif animal.start_eating < (datetime.datetime.now() - datetime.timedelta(seconds=animal.eating_speed)):
@@ -1067,6 +1070,11 @@ def game_tick():
         else:
             active_animals[_id]["timeout_full_seconds"] = ANIMAL_TIMEOUT
 
+    powerups = table_to_dict(powerups_table)
+    for _id, powerup in powerups.items():
+        powerups[_id]["timeout"] = powerup["start_time"] + datetime.timedelta(seconds=powerup["duration"])
+        powerups[_id]["timeout_full_seconds"] = powerup["duration"]
+
     shaking = False
     if main_table.get('last_shake'):
         if (datetime.datetime.now() - main_table['last_shake']).total_seconds() < 1:
@@ -1075,7 +1083,7 @@ def game_tick():
     return {
         "codes": codes,
         "players": table_to_dict(players_table),
-        "powerups": table_to_dict(powerups_table),
+        "powerups": powerups,
         "animals": active_animals,
         "spawned_animals": spawned_animals,
         "shelved_animals": table_to_dict(shelved_animals_table),
