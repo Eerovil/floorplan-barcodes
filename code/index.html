@@ -172,7 +172,7 @@
 <body>
     <div id="vue-app">
     </div>
-    <script type="template/html" id="template">
+    <template id="template">
         <div id="wrapper" :class="{tv: tvMode}">
             <img ref="img" src="/static/floorplan.jpg"></img>
             <svg ref="svg" id="svg-el"></svg>
@@ -193,6 +193,7 @@
             <div id="animals">
                 <div v-for="(animal, key) in animals" :id="`animal-${cleanCode(key)}`" class="animal-wrapper">
                     <img style="height: 18px" :src="`/static/${animal.fruit_slug}.png`">
+                    <timer-component :animal="animal"></timer-component>
                     <span class="animal" :class="{[animal.slug]: true, 'vibrating': animal.filled}" :style="{'width': `${80 + animal.level*30}px`}">
                         <img v-if="animal.egg" :src="`/static/egg.png`" class="animal-img" :class="{vibrating: shaking}">
                         <img v-else :src="`/static/${animal.slug}/animated/${animal.fruit ? 'back' : 'front'}_${animal.shiny ? 'shiny' : 'default'}.gif`" class="animal-img">
@@ -225,11 +226,19 @@
                 </div>
             </div>
         </div>
-    </script>
+    </template>
+
+{% include 'timer.html' %}
+
     <script>
         var app = new Vue({
             el: '#vue-app',
             template: "#template",
+
+            components: {
+                TimerComponent
+            },
+
             data: () => ({
                 points: [],
                 players: {},

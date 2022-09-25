@@ -231,6 +231,7 @@ animals_table[-1] = Animal(
     egg=False,
 )
 logger.info("Added burglar")
+BURGLAR_JAIL_TIME = 60
 
 
 
@@ -967,7 +968,7 @@ def handle_animal_collected(animal):
     animal.spawned = False
     animal.timeout = datetime.datetime.now() + datetime.timedelta(seconds=ANIMAL_TIMEOUT)
     if animal.slug == "burglar":
-        animal.timeout = datetime.datetime.now() + datetime.timedelta(seconds=60)
+        animal.timeout = datetime.datetime.now() + datetime.timedelta(seconds=BURGLAR_JAIL_TIME)
 
     active_animals_table[animal.id] = animal
     if animal.id in spawned_animals_table:
@@ -1060,6 +1061,11 @@ def game_tick():
         spawned_animals[key]["seconds_to_target"] = ((spawned_animals[key]["target_time"] - datetime.datetime.now()).total_seconds()) + 3.0
 
     active_animals = table_to_dict(active_animals_table)
+    for _id, active_animal in active_animals.items():
+        if active_animal["slug"] == "burglar":
+            active_animals[_id]["timeout_full_seconds"] = BURGLAR_JAIL_TIME
+        else:
+            active_animals[_id]["timeout_full_seconds"] = ANIMAL_TIMEOUT
 
     shaking = False
     if main_table.get('last_shake'):

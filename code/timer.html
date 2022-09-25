@@ -1,0 +1,76 @@
+<template id="timer_template">
+    <div id="timer-wrapper">
+        <svg>
+            <circle r="18" cx="20" cy="20" :style="countdownStyle"></circle>
+        </svg>
+    </div>
+</template>
+<script>
+    var TimerComponent = Vue.component("TimerComponent", {
+        name: "TimerComponent",
+        template: "#timer_template",
+
+        props: {
+            animal: {
+                type: Object,
+                required: true
+            }
+        },
+
+        data: () => ({
+            countdownStyle: {
+                animation: "countdown 10s linear infinite forwards"
+            }
+        }),
+        mounted() {
+            console.log("Hello timercomponent: ", this.animal);
+            const secsToTimeout = Math.abs(this.getSecondsDiff(new Date(this.animal.timeout.replace("GMT", "")), new Date()));
+            console.log("secsToTimeout", secsToTimeout);
+            this.countdownStyle = {
+                animation: `countdown ${this.animal.timeout_full_seconds}s linear infinite forwards`,
+                "animation-delay": `-${this.animal.timeout_full_seconds - secsToTimeout}s`,
+            }
+        },
+        methods: {
+            getSecondsDiff(startDate, endDate) {
+                const msInSecond = 1000;
+
+                return Math.round(
+                    Math.abs(endDate - startDate) / msInSecond
+                );
+            }
+        },
+        computed: {
+        }
+    });
+</script>
+
+<style>
+    #timer-wrapper {
+        width: 50px;
+        height: 50px;
+    }
+
+    #timer-wrapper svg {
+        transform: rotateY(-180deg) rotateZ(-90deg);
+    }
+
+    #timer-wrapper svg circle {
+        stroke-dasharray: 113px;
+        stroke-dashoffset: 0px;
+        stroke-linecap: round;
+        stroke-width: 4px;
+        stroke: rgb(41, 35, 35);
+        fill: none;
+    }
+
+    @keyframes countdown {
+        from {
+            stroke-dashoffset: 0px;
+        }
+
+        to {
+            stroke-dashoffset: 113px;
+        }
+    }
+</style>
