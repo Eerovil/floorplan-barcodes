@@ -525,13 +525,23 @@ def handle_fruit_collected(point, timeout=False):
                 if powerup.slug == 'sun':
                     # Spawn one of each fruit type (or try to)
                     animal_destinations = [animal.real_target for animal in spawned_animals_table.values()]
+                    random_points = list(sorted(codes_table.values(), key=lambda _: random.random()))
+                    fruit_slugs = FRUIT_SLUGS
+                    if point.super_fruit or 'super_fruits' in active_powerups():
+                        fruit_slugs += FRUIT_SLUGS
                     for fruit_slug in FRUIT_SLUGS:
-                        for _point in sorted(codes_table.values(), key=lambda _: random.random()):
+                        for _point in random_points:
                             if _point.barcode in animal_destinations:
                                 continue
                             if not _point.fruit:
                                 respawn_fruit(_point, fruit_slug=fruit_slug)
                                 break
+                        else:
+                            for _point in random_points:
+                                if not _point.fruit:
+                                    respawn_fruit(_point, fruit_slug=fruit_slug)
+                                    break
+
                 logger.info("Powerup collected: %s at %s", powerup.slug, point.barcode)
 
     if not handled:
