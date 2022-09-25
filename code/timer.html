@@ -23,9 +23,8 @@
             }
         }),
         mounted() {
-            console.log("Hello timercomponent: ", this.animal);
             let secsToTimeout = this.getSecondsDiff(new Date(), new Date(this.animal.timeout.replace("GMT", "")));
-            console.log("secsToTimeout", secsToTimeout);
+
             if (secsToTimeout < 1) {
                 secsToTimeout = 1;
             }

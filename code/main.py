@@ -716,9 +716,18 @@ logger.info("points_by_distance_table: %s", len(points_by_distance_table))
 def animal_new_target(animal, old_location=None):
     if animal.slug == "burglar" or animal.location in codes_table:
         # Animal is in a "bush"
-        used_real_targets = [_sp_animal.real_target for _sp_animal in spawned_animals_table.values() if _sp_animal.real_target]
+        used_real_targets = [
+            _sp_animal.real_target
+            for _sp_animal in spawned_animals_table.values()
+            if _sp_animal.real_target
+        ]
         if animal.slug == "burglar":
-            used_real_targets = []  # Burglar can go anywhere
+            # Burglar can't target same as another burglar
+            used_real_targets = [
+                _sp_animal.real_target
+                for _sp_animal in spawned_animals_table.values()
+                if _sp_animal.real_target and _sp_animal.slug == "burglar" and _sp_animal.id != animal.id
+            ]
         used_real_targets.append(animal.location)
 
         available_targets = []
@@ -795,12 +804,17 @@ def handle_animal_spawns(to_spawn):
         ])[:unique_shleved_animals+2]
     )
 
+    burglar_count = 0
     for animal in [*list(spawned_animals_table.values()), *list(active_animals_table.values())]:
         if animal.slug == "burglar":
-            # Burglar is already spawned
-            break
-    else:
-        available_slugs += ["burglar"]
+            burglar_count += 1
+
+    max_burglar_count = (unique_shleved_animals % 3) + 1
+    if max_burglar_count > 3:
+        max_burglar_count = 3
+
+    if burglar_count < max_burglar_count:
+        available_slugs = ["burglar"]
 
     # Count unspanwed, initialized animals
     available_animals = [
@@ -816,7 +830,7 @@ def handle_animal_spawns(to_spawn):
     if len(available_animals) < to_spawn:
         logger.info("Not enough animals to spawn, initializing more")
         for _ in range(to_spawn - len(available_animals)):
-            animal_slug = random.choice([slug for slug in available_slugs if slug != "burglar"])
+            animal_slug = random.choice([slug for slug in available_slugs])
             animal = [
                 _animal for _animal in animals_table.values()
                 if _animal.slug == animal_slug
@@ -1122,6 +1136,7 @@ def get_hint(point):
         "sandvich": "leipä",
         "sun": "aurinko",
         "super_fruits": "pullo",
+        "handcuffs": "käsiraudat",
     }
 
     interesting_fruit = set()
@@ -1220,7 +1235,10 @@ def mark_barcodes():
         elif point.fruit == 'handcuffs':
             ret += 'käsiraudat! Ota varas kiinni!'
         elif point.fruit == 'sun':
-            ret += 'Auringon! Hedelmiä kasvaa!'
+            if point.super_fruit or 'super_fruits' in active_powerups():
+                ret += 'Auringon! Hedelmiä kasvaa tosi paljon!'
+            else:
+                ret += 'Auringon! Hedelmiä kasvaa!'
         else:
             ret = ""
 
