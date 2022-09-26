@@ -231,7 +231,7 @@ animals_table[-1] = Animal(
     egg=False,
 )
 logger.info("Added burglar")
-BURGLAR_JAIL_TIME = 60
+BURGLAR_JAIL_TIME = 60 * 2
 
 
 
@@ -878,7 +878,7 @@ def handle_spawned_animal(animal):
                 # Reached real target, stay a while
                 animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=random.randint(50, 60))
                 if animal.slug == "burglar":
-                    animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=random.randint(2, 5))
+                    animal.target_time = datetime.datetime.now() + datetime.timedelta(seconds=random.randint(5, 10))
                 point = get_point(animal.target)
                 if point.fruit and point.fruit.startswith('animal-'):
                     try:
