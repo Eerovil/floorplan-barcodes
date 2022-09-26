@@ -605,7 +605,7 @@ def respawn_fruit(point, powerup_only=False, fruit_slug=None):
                 # super_fruits is available only if fruits are on the map
                 continue
         if powerup.slug == "handcuffs":
-            if len(list(animal for animal in spawned_animals_table.values() if animal.slug == "burglar")) > 0:
+            if len(list(animal for animal in spawned_animals_table.values() if animal.slug == "burglar")) == 0:
                 # handcuffs is available only if burglars are on the map
                 continue
         for _point in codes_table.values():
