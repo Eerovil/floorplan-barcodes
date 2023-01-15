@@ -7,14 +7,32 @@
     <style>
         .point {
             position: absolute;
-            width: 10px;
-            height: 10px;
+            width: 3px;
+            height: 3px;
+            background-color: #33ff0061;
+            border-radius: 50%;
+        }
+        .map-point {
+            background-color: #0400ff !important;
+        }
+        .map-point-hidden {
+            display: none;
         }
         .point .fruit {
             width: 40px;
             height: auto;
             margin-left: -8px;
             margin-top: -21px;
+            z-index: 2;
+            position: absolute;
+        }
+        .point .grass {
+            width: 50px;
+            height: auto;
+            margin-left: -20px;
+            margin-top: -21px;
+            z-index: 1;
+            position: absolute;
         }
         .point .super-fruit {
             width: 100px !important;
@@ -22,7 +40,7 @@
             margin-left: -38px;
             margin-top: -62px;
         }
-        .point .vibrating {
+        .vibrating {
             animation: shake 0.5s;
             animation-iteration-count: infinite;
         }
@@ -41,7 +59,7 @@
         }
 
         .player {
-            display: none;
+            display: none !important;
             position: absolute;
             width: 40px;
             height: 40px;
@@ -55,7 +73,6 @@
             height: auto !important;
         }
         #svg-el {
-            display: none;
             position: absolute;
             top: 0;
             left: 0;
@@ -64,6 +81,15 @@
         }
         #wrapper {
             display: flex;
+            position: relative;
+        }
+        #wrapper.mobile {
+            flex-direction: column;
+        }
+        .moving-animal {
+            position: absolute;
+            width: 40px;
+            height: 40px;
         }
         #animals {
             width: 100%;
@@ -75,6 +101,7 @@
         #animals .animal-wrapper {
             display: flex;
             align-items: flex-end;
+            flex-wrap: wrap;
         }
         #animals .animal {
             display: flex;
@@ -103,59 +130,200 @@
             height: 5px;
             background-color: green;
         }
+        #powerups {
+            width: 100%;
+            background-color: white;
+            display: flex;
+            position: absolute;
+            bottom: -100px;
+            height: 120px;
+        }
+        .mobile #powerups {
+            position: static;
+            height: auto;
+        }
+        #powerups .powerup-wrapper {
+            border: 1px solid black;
+            padding: 0.5rem;
+            margin-right: 0.5rem;
+        }
+        #powerups img.powerup {
+            height: 50px;
+        }
+        #evolving {
+            width: 100%;
+            height: 100%;
+            background-color: white;
+            position: fixed;
+            text-transform: uppercase;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 10;
+        }
+        #shelved_animals {
+            position: fixed;
+            max-width: 550px;
+            display: flex;
+            flex-wrap: wrap;
+        }
+        .mobile #shelved_animals {
+            top: 0;
+        }
+        #shelved_animals > div {
+            white-space: break-spaces;
+            padding-right: 1rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+        #shelved_animals img {
+            width: 70px;
+            height: auto;
+        }
+        #shelved_animals.alot img {
+            width: 40px;
+        }
+        #shelved_animals.alot * {
+            font-size: 10px;
+        }
     </style>
 </head>
 <body>
     <div id="vue-app">
     </div>
-    <script type="template/html" id="template">
-        <div id="wrapper">
+    <template id="template">
+        <div id="wrapper" :class="{mobile: !tvMode}">
             <img ref="img" src="/static/floorplan.jpg"></img>
             <svg ref="svg" id="svg-el"></svg>
             <div
                 v-for="point in points"
                 :id="`point-${cleanCode(point.barcode)}`"
                 class="point"
+                :class="{'map-point': point.map_point, 'map-point-hidden': (point.map_point && !mapVisible)}"
                 :style="{'top': yToPx(point.y), 'left': xToPx(point.x), 'width': `${pointSize}px`, 'height': `${pointSize}px`}"
                 @mousedown="dragStart($event, point)"
                 @click="markPoint(point)"
                 :title="point.barcode"
             >
-                <img v-if="point.fruit" :src="`/static/${(point.gift ? 'gift' : point.fruit)}.png`" class="fruit" :class="{'super-fruit': point.super_fruit || superFruits, vibrating: point.close_to_timeout}">
+                <img v-if="!point.map_point" :src="`/static/grass.${(point.fruit || '').startsWith('animal') ? 'gif': 'png'}`" class="grass">
+                <img v-if="point.fruit && !point.fruit.startsWith('animal')" :src="`/static/${(point.gift ? 'gift' : point.fruit)}.png`" class="fruit" :class="{'super-fruit': point.super_fruit || superFruits, vibrating: point.close_to_timeout}">
             </div>
             <div v-for="(player, key) in players" :id="`player-${cleanCode(key)}`" class="player"></div>
+            <div id="powerups">
+                <div v-for="powerup in Object.values(powerups).filter(p => p.active)" :key="powerup.slug" class="powerup-wrapper">
+                    <img :src="`/static/${powerup.slug}.png`" class="powerup">
+                    <timer-component :animal="powerup"></timer-component>
+                </div>
+            </div>
             <div id="animals">
                 <div v-for="(animal, key) in animals" :id="`animal-${cleanCode(key)}`" class="animal-wrapper">
-                    <span class="animal" :class="{[animal.slug]: true}" :style="{'width': `${80 + animal.level*20}px`}">
-                        <img v-if="animal.fruit" :src="`/static/${animal.slug}_eating.gif`" class="animal-img">
-                        <img v-else :src="`/static/${animal.slug}_waiting.png`" class="animal-img">
-                        <div class="level-bar">
-                            <div class="level-progress" :style="{width: `${(animal.experience - (animal.level * 5)) * 20 }%`}"></div>
-                        </div>
+                    <img style="height: 18px" :src="`/static/${animal.fruit_slug}.png`">
+                    <timer-component :animal="animal"></timer-component>
+                    <span class="animal" :class="{[animal.slug]: true, 'vibrating': animal.filled}" :style="{'width': `${80 + animal.level*30}px`}">
+                        <img v-if="animal.egg" :src="`/static/egg.png`" class="animal-img" :class="{vibrating: shaking}">
+                        <img v-else :src="`/static/${animal.slug}/animated/${animal.fruit ? 'back' : 'front'}_${animal.shiny ? 'shiny' : 'default'}.gif`" class="animal-img">
                     </span>
                     <img class="fruit" v-for="index in animal.fruit" :key="index" :src="`/static/${animal.fruit_slug}.png`" :class="{'newFruit': (index == (animal.fruit) && animal.newFruitFrom) }">
+                    <div style="width: 100%"><span v-if="animal.shiny">SHINY</span> {{ '{{ animal.name.toUpperCase() }}' }} LEVEL {{ '{{ animal.level + 1 }}' }}</div>
+                </div>
+            </div>
+            <div if="moving-animals">
+                <div
+                    v-for="animal in movingAnimals"
+                    :key="animal.id"
+                    :style="{'top': yToPx(animal.point.y, -15), 'left': xToPx(animal.point.x, -15), 'width': `30px`, 'height': `30px`}"
+                    class="moving-animal"
+                    :class="{[`moving-animal-${animal.id}`]: true, 'vibrating': animal.close_to_timeout}"
+                >
+                    <img :src="`/static/${animal.slug}/animated/back_${animal.shiny ? 'shiny' : 'default'}.gif`" class="animal-img">
+                </div>
+            </div>
+            <div id="evolving" v-if="evolving && evolving.from">
+                <h1 v-if="evolving.progress < 100">{{ '{{ evolving.from }}' }} is evolving!</h1>
+                <h1 v-else>it's now {{ '{{ evolving.to }}' }}!</h1>
+                <img class="evolving-from" :style="{display: (evolving.progress == 100 || (evolving.progress % 2 == 0)) ? 'none' : 'inline'}" :src="`/static/${evolving.from}/dream_world/front_default.svg`">
+                <img class="evolving-to" :style="{display: (evolving.progress < 100 && (evolving.progress % 2 == 1)) ? 'none' : 'inline'}" :src="`/static/${evolving.to}/dream_world/front_default.svg`">
+            </div>
+            <div id="shelved_animals" :class="{alot: Object.values(shelvedAnimals).length > 10}">
+                <div v-for="animal in shelvedAnimals">
+                    <img :src="`/static/${animal.slug}/animated/${shelveImage}_${animal.shiny ? 'shiny' : 'default'}.gif`">
+                    <div><div v-if="animal.shiny">SHINY </div>{{ '{{ animal.name.toUpperCase() }}' }}</div>
                 </div>
             </div>
         </div>
-    </script>
+    </template>
+
+{% include 'timer.html' %}
+
     <script>
         var app = new Vue({
             el: '#vue-app',
             template: "#template",
+
+            components: {
+                TimerComponent
+            },
+
             data: () => ({
                 points: [],
                 players: {},
                 animals: {},
+                shelvedAnimals: {},
+                movingAnimals: {},
                 powerups: {},
                 dragTarget: null,
-                pointSize: 25,
+                pointSize: 10,
 
                 playerWidth: 40,
 
                 fireworks: null,
+
+                evolving: {
+                    progress: null,
+                    from: null,
+                    to: null,
+                },
+
+                selectedPoint: null,
+                addMap: false,
+                modifyMap: false,
+                showMap: false,
+
+                shelveImage: 'front',
+
+                shaking: false,
+
+                tvMode: false,
             }),
             mounted() {
+                this.tvMode = window.location.href.includes('tv');
+                //this.evolvingEvent('pichu', 'pikachu');
+                let entries = new URLSearchParams(window.location.search);
+                const result = {}
+                for(const [key, value] of entries) { // each 'entry' is a [key, value] tupple
+                    result[key] = value;
+                }
+                
+                if (result.addMap == '1') {
+                    document.onclick = this.addMapPoint
+                    this.addMap = true;
+                }
+                if (result.modifyMap == '1') {
+                    this.modifyMap = true
+                }
+                if (result.showMap == '1') {
+                    this.showMap = true
+                }
                 this.fetchTick();
+                setInterval(() => {
+                    if (this.shelveImage == 'front') {
+                        this.shelveImage = 'back'
+                    } else {
+                        this.shelveImage = 'front'
+                    }
+                }, 5000);
             },
             methods: {
                 xToPx(x, offset) {
@@ -181,12 +349,21 @@
                 fetchTick() {
                     axios.get('/api/tick')
                         .then(response => {
-                            console.log(response.data);
                             this.players = response.data.players;
                             this.points = response.data.codes;
                             this.powerups = response.data.powerups;
+                            this.shelvedAnimals = response.data.shelved_animals;
+                            this.shaking = response.data.shaking;
+                            this.handleMovingAnimals(response.data.spawned_animals)
                             this.handleAnimals(response.data.animals)
                             this.handlePlayers();
+                            if (this.modifyMap || this.showMap) {
+                                this.drawMap()
+                            }
+                            if (window.parent && response.data.hint) {
+                                var event = new CustomEvent('speak', { detail: response.data.hint })
+                                window.parent.document.dispatchEvent(event)
+                            }
                         })
                         .catch(error => {
                             console.log(error);
@@ -196,7 +373,9 @@
                         });
                 },
                 markPoint(point) {
-                    axios.post('/api/mark', {barcode: point.barcode})
+                    axios.post('/api/mark', {barcode: point.barcode}).then(resp => {
+                        console.log(resp.data)
+                    })
                 },
                 cleanCode(code) {
                     return code.replaceAll('/', '').replaceAll(':', '').replaceAll('.', '');
@@ -209,6 +388,13 @@
                 dragEnd() {
                     const target = this.dragTarget;
                     this.dragTarget = null;
+                    if (this.modifyMap) {
+                        if (this.selectedPoint) {
+                            this.connectPoints(this.selectedPoint, target.barcode);
+                        } else {
+                            this.selectedPoint = target.barcode
+                        }
+                    }
                     document.onmouseup = null;
                     document.onmousemove = null;
                     axios.post('/api/modify', {barcode: target.barcode, x: target.x, y: target.y})
@@ -219,6 +405,24 @@
                             console.log(error);
                         });
                 },
+                connectPoints(barcode1, barcode2) {
+                    this.selectedPoint = null;
+                    axios.post('/api/connect', {barcode1: barcode1, barcode2: barcode2})
+                        .then(response => {
+                            console.log(response.data);
+                        })
+                        .catch(error => {
+                            console.log(error);
+                        });
+                },
+                drawMap() {
+                    this.$refs.svg.innerHTML = '';
+                    for (const point of Object.values(this.points)) {
+                        for (const connection of (point.connections || [])) {
+                            this.drawLine(point.barcode, connection);
+                        }
+                    }
+                },
                 updateDragTarget(event) {
                     event = event || window.event;
                     event.preventDefault();
@@ -226,6 +430,25 @@
                     this.dragTarget.x = (event.clientX - this.pointSize / 2) / this.imgEl.width;
                     this.dragTarget.y = (event.clientY - this.pointSize / 2) / this.imgEl.height;
                     console.log(this.dragTarget)
+                },
+                addMapPoint(event) {
+                    event = event || window.event;
+                    if (event) {
+                        event.preventDefault();
+                    }
+                    const newPoint = {
+                        x: (event.clientX - this.pointSize / 2) / this.imgEl.width,
+                        y: (event.clientY - this.pointSize / 2) / this.imgEl.height,
+                        barcode: 'map-point-' + Object.values(this.points).length,
+                    };
+                    
+                    axios.post('/api/add', {barcode: newPoint.barcode, x: newPoint.x, y: newPoint.y})
+                        .then(response => {
+                            console.log(response.data);
+                        })
+                        .catch(error => {
+                            console.log(error);
+                        });
                 },
                 handlePlayers() {
                     // Allow vue to render the player elements, wait a tick
@@ -245,11 +468,21 @@
                     })
                 },
                 handleAnimals(newAnimals) {
-                    for (const animalSlug in newAnimals) {
-                        const animal = newAnimals[animalSlug];
+                    const expectingEvolutions = {}
+                    for (const oldAnimal of Object.values(this.animals)) {
+                        if (oldAnimal.evolution) {
+                            expectingEvolutions[oldAnimal.evolution_id] = oldAnimal.slug;
+                        }
+                    }
+                    for (const animalID in newAnimals) {
+                        const animal = newAnimals[animalID];
+                        const animalSlug = animal.slug;
+                        if (expectingEvolutions[animalID]) {
+                            this.evolvingEvent(animalID, expectingEvolutions[animalID], animalSlug);
+                        }
                         animal.newFruitFrom = false;
-                        if (this.animals[animalSlug]) {
-                            if (this.animals[animalSlug].fruit < animal.fruit) {
+                        if (this.animals[animalID]) {
+                            if (this.animals[animalID].fruit < animal.fruit || this.animals[animalID].close_to_timeout != animal.close_to_timeout || this.animals[animalID].egg != animal.egg) {
                                 if (!document.querySelector(".newFruit")) {
                                     // New fruit
                                     animal.newFruitFrom = true;
@@ -259,7 +492,7 @@
                                         // Animate newFruit
                                         this.$nextTick(() => {
                                             const newFruitEl = document.querySelector(".newFruit");
-                                            const animalEl = document.querySelector("#animal-" + animalSlug);
+                                            const animalEl = document.querySelector("#animal-" + animalID);
                                             const animalPos = animalEl.getBoundingClientRect();
                                             const animalInnerEl = animalEl.querySelector(".animal");
                                             newFruitEl.style.top = this.yToPx(pointFrom.y);
@@ -276,18 +509,71 @@
                                         })
                                     }
                                 }
-                            } else if (this.animals[animalSlug].fruit == animal.fruit) {
+                            } else if (this.animals[animalID].fruit == animal.fruit) {
                                 continue
                             }
                         }
-                        this.animals[animalSlug] = animal;
+                        this.animals[animalID] = animal;
                     }
-                    for (const animalSlug in this.animals) {
-                        if (!newAnimals[animalSlug]) {
-                            delete this.animals[animalSlug];
+                    for (const animalID in this.animals) {
+                        if (!newAnimals[animalID]) {
+                            delete this.animals[animalID];
                         }
                     }
-                }
+                },
+                handleMovingAnimals(newAnimals) {
+                    for (const animalID in newAnimals) {
+                        const animal = newAnimals[animalID];
+                        const animalSlug = animal.slug;
+                        animal.newFruitFrom = false;
+                        if (!this.movingAnimals[animalID] || this.movingAnimals[animalID].target != animal.target || this.movingAnimals[animalID].close_to_timeout != animal.close_to_timeout) {
+                            this.movingAnimals[animalID] = animal;
+                            this.movingAnimals[animalID].point = this.points[animal.location];
+                            this.$nextTick(() => {
+                                const animalEl = document.querySelector(".moving-animal-" + animalID);
+                                if (!animalEl) {
+                                    return
+                                }
+                                animalEl.style.transition = `all ${animal.seconds_to_target}s linear`;
+                                this.movingAnimals[animalID].point = this.points[animal.target];
+                            })
+                        }
+                    }
+                    for (const animalID in this.movingAnimals) {
+                        if (!newAnimals[animalID]) {
+                            delete this.movingAnimals[animalID];
+                        }
+                    }
+                },
+                evolvingEvent(fromID, from, to) {
+                    const eventSlug = fromID;
+                    this.evolving = {
+                        fromID: fromID,
+                        from: from,
+                        to: to,
+                        progress: 0,
+                    };
+                    this.evolving.progress = 0
+                    const progressFunc = () => {
+                        if (this.evolving.fromID != eventSlug) {
+                            return
+                        }
+                        this.evolving.progress += 7;
+                        if (this.evolving.progress <= 100) {
+                            setTimeout(progressFunc, 2 * (this.evolving.progress || 0));
+                        } else {
+                            this.evolving.progress = 100
+                            setTimeout(() => {
+                                // Prevent stuff when another event is created while this is running
+                                if (this.evolving.fromID != eventSlug) {
+                                    return
+                                }
+                                this.evolving = null;
+                            }, 3000)
+                        }
+                    }
+                    progressFunc();
+                },
             },
             computed: {
                 imgEl() {
@@ -300,7 +586,10 @@
                         }
                     }
                     return false;
-                }
+                },
+                mapVisible() {
+                    return this.showMap || this.modifyMap || this.addMap;
+                },
             }
         });
     </script>
