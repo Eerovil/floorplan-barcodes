@@ -375,6 +375,7 @@
                         });
                 },
                 markPoint(point) {
+                    return;
                     axios.post('/api/mark', {barcode: point.barcode}).then(resp => {
                         console.log(resp.data)
                     })
