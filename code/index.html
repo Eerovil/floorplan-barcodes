@@ -307,7 +307,7 @@
                 }
                 
                 if (result.addMap == '1') {
-                    document.onclick = this.addMapPoint
+                    document.addEventListener('click', this.addMapPoint)
                     this.addMap = true;
                 }
                 if (result.modifyMap == '1') {
@@ -382,8 +382,8 @@
                 },
                 dragStart(event, point) {
                     this.dragTarget = point;
-                    document.onmouseup = this.dragEnd;
-                    document.onmousemove = this.updateDragTarget;
+                    document.addEventListener('mousemove', this.updateDragTarget);
+                    document.addEventListener('mouseup', this.dragEnd);
                 },
                 dragEnd() {
                     const target = this.dragTarget;
@@ -395,8 +395,8 @@
                             this.selectedPoint = target.barcode
                         }
                     }
-                    document.onmouseup = null;
-                    document.onmousemove = null;
+                    document.removeEventListener('mousemove', this.updateDragTarget);
+                    document.removeEventListener('mouseup', this.dragEnd);
                     axios.post('/api/modify', {barcode: target.barcode, x: target.x, y: target.y})
                         .then(response => {
                             console.log(response.data);
