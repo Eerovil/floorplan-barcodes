@@ -207,8 +207,8 @@
                 @click="markPoint(point)"
                 :title="point.barcode"
             >
-                <img v-if="!point.map_point" :src="`/static/grass.${(point.fruit || '').startsWith('animal') ? 'gif': 'png'}`" class="grass">
-                <img v-if="point.fruit && !point.fruit.startsWith('animal')" :src="`/static/${(point.gift ? 'gift' : point.fruit)}.png`" class="fruit" :class="{'super-fruit': point.super_fruit || superFruits, vibrating: point.close_to_timeout}">
+                <img v-if="!point.map_point" :src="`/static/grass.${(point.fruit || '').startsWith('animal') ? 'gif': 'png'}`" class="grass" draggable="false">
+                <img v-if="point.fruit && !point.fruit.startsWith('animal')" :src="`/static/${(point.gift ? 'gift' : point.fruit)}.png`" class="fruit" :class="{'super-fruit': point.super_fruit || superFruits, vibrating: point.close_to_timeout}" draggable="false">
             </div>
             <div v-for="(player, key) in players" :id="`player-${cleanCode(key)}`" class="player"></div>
             <div id="powerups">
