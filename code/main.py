@@ -14,6 +14,7 @@ from pydantic import BaseModel
 data_folder = '../data'
 
 app = Flask(__name__, static_url_path='/static', static_folder=data_folder, template_folder='')
+application = app
 logger = app.logger
 logger.setLevel(logging.DEBUG)
 
@@ -110,6 +111,72 @@ INITIAL_CODES = [
 ]
 HOME_CODE = 'http://koodi-6'
 ANIMAL_SKIP_CODES = [HOME_CODE]
+BURGLAR_JAIL_TIME = 60 * 2
+FRUIT_TIMEOUT = 60
+ANIMAL_TIMEOUT = 7 * 60
+ANIMAL_CLOSE_TIMEOUT = 30
+
+point_names = {
+    'http://koodi-1': 'Eteisessä',
+    'http://koodi-2': 'Sohvan takana',
+    'http://koodi-3': 'Savupiipussa',
+    'http://koodi-4': 'Makuuhuoneessa',
+    'http://koodi-5': 'Jääkaapissa',
+    'http://koodi-6': 'Telkkarin Luona',
+    'http://koodi-7': 'Kuivausrummussa',
+    'http://koodi-8': 'Einarin Huoneessa',
+    'http://koodi-9': 'Valtterin Huoneessa',
+}
+
+
+pokemon_roots = {}
+for pokemon_name, pokemon in pokemons_table.items():
+    if 'evolution' not in pokemon:
+        continue
+
+    for animal in animals_table.values():
+        if animal.slug == pokemon['evolution']:
+            next_evolution = animal
+            break
+    if pokemon_name not in pokemon_roots:
+        pokemon_roots[next_evolution.slug] = pokemon_name
+    else:
+        pokemon_roots[next_evolution.slug] = pokemon_roots[pokemon_name]
+
+
+def get_pokemon_root(slug):
+    if slug in pokemon_roots:
+        return pokemon_roots[slug]
+    return slug
+
+def table_setter(table, table_key, key, value):
+    table_row = table[table_key]
+    table_row[key] = value
+    table[table_key] = table_row
+
+play_area_limits = [
+    set([
+        'http://koodi-2',
+        'http://koodi-5',
+        # Lisäsiipi
+        'http://koodi-6',
+        'http://koodi-7',
+        'http://koodi-8',
+        'http://koodi-3',
+    ]),
+    set([
+        # Lisäsiipi
+        'http://koodi-6',
+        'http://koodi-7',
+        'http://koodi-8',
+        'http://koodi-3',
+    ]),
+]
+
+def get_not_play_area_codes():
+    if main_table['PLAY_AREA'] > len(play_area_limits) - 1:
+        return []
+    return [code for code in codes_table.keys() if code in play_area_limits[main_table['PLAY_AREA']]]
 
 def init_data():
     main_table['last_tick'] = datetime.datetime.now()
@@ -191,13 +258,6 @@ def init_data():
         animals_table[animal.id] = animal
         logger.info("Loaded pokemon %s, evolution: %s", pokemon_name, pokemon.get('evolution'))
 
-    pokemon_roots = {}
-    def get_pokemon_root(slug):
-        if slug in pokemon_roots:
-            return pokemon_roots[slug]
-        return slug
-
-
     for pokemon_name, pokemon in pokemons_table.items():
         if 'evolution' not in pokemon:
             continue
@@ -224,7 +284,6 @@ def init_data():
             raise Exception("Could not find pokemon %s", pokemon_name)
 
 
-
     animals_table[-1] = Animal(
         id=-1,
         slug="burglar",
@@ -244,13 +303,6 @@ def init_data():
         egg=False,
     )
     logger.info("Added burglar")
-    BURGLAR_JAIL_TIME = 60 * 2
-
-
-
-    FRUIT_TIMEOUT = 60
-    ANIMAL_TIMEOUT = 7 * 60
-    ANIMAL_CLOSE_TIMEOUT = 30
 
     def _init_row(barcode=''):
         return Point(**{
@@ -264,13 +316,6 @@ def init_data():
             'fruit_timeout': None,
         })
 
-
-    def table_setter(table, table_key, key, value):
-        table_row = table[table_key]
-        table_row[key] = value
-        table[table_key] = table_row
-
-
     for initial_code in INITIAL_CODES:
         if initial_code not in codes_table:
             codes_table[initial_code] = _init_row(initial_code)
@@ -279,49 +324,9 @@ def init_data():
         if code not in INITIAL_CODES:
             del codes_table[code]
 
-
-    point_names = {
-        'http://koodi-1': 'Eteisessä',
-        'http://koodi-2': 'Sohvan takana',
-        'http://koodi-3': 'Savupiipussa',
-        'http://koodi-4': 'Makuuhuoneessa',
-        'http://koodi-5': 'Jääkaapissa',
-        'http://koodi-6': 'Telkkarin Luona',
-        'http://koodi-7': 'Kuivausrummussa',
-        'http://koodi-8': 'Einarin Huoneessa',
-        'http://koodi-9': 'Valtterin Huoneessa',
-    }
-
-
-
-    play_area_limits = [
-        set([
-            'http://koodi-2',
-            'http://koodi-5',
-            # Lisäsiipi
-            'http://koodi-6',
-            'http://koodi-7',
-            'http://koodi-8',
-            'http://koodi-3',
-        ]),
-        set([
-            # Lisäsiipi
-            'http://koodi-6',
-            'http://koodi-7',
-            'http://koodi-8',
-            'http://koodi-3',
-        ]),
-    ]
-
     main_table['PLAY_AREA'] = 30
     main_table['ACTIVE_PLAYING_START'] = None
     main_table['ACTIVE_PLAYING_CURRENT'] = None
-
-    def get_not_play_area_codes():
-        if main_table['PLAY_AREA'] > len(play_area_limits) - 1:
-            return []
-        return [code for code in codes_table.keys() if code in play_area_limits[main_table['PLAY_AREA']]]
-
 
     def get_point(barcode):
         point = codes_table.get(barcode)
