@@ -11,9 +11,7 @@ import hashlib
 from typing import List, Optional
 from pydantic import BaseModel
 
-data_folder = '/data'
-if not os.path.exists(data_folder):
-    data_folder = '../data'
+data_folder = '../data'
 
 app = Flask(__name__, static_url_path='/static', static_folder=data_folder, template_folder='')
 logger = app.logger
