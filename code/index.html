@@ -358,7 +358,9 @@
                             this.handleAnimals(response.data.animals)
                             this.handlePlayers();
                             if (this.modifyMap || this.showMap) {
-                                this.drawMap()
+                                setTimeout(() => {
+                                    this.drawMap()
+                                }, 10);
                             }
                             if (window.parent && response.data.hint) {
                                 var event = new CustomEvent('speak', { detail: response.data.hint })
