@@ -33,8 +33,6 @@ pokemons_table = SqliteDict(os.path.join(data_folder, 'pokemons.db'), tablename=
 
 FRUIT_SLUGS = ['watermelon', 'carrot', 'apple', 'sandvich']
 
-main_table['last_tick'] = datetime.datetime.now()
-
 class Animal(BaseModel):
     active = False
     spawned = False
@@ -99,163 +97,6 @@ class Powerup(BaseModel):
     start_time: datetime.datetime
 
 
-# Load pokemons
-for animal_id in list(animals_table.keys()):
-    del animals_table[animal_id]
-
-for animal_id in list(active_animals_table.keys()):
-    del active_animals_table[animal_id]
-
-for animal_id in list(spawned_animals_table.keys()):
-    del spawned_animals_table[animal_id]
-
-for animal_id in list(shelved_animals_table.keys()):
-    del shelved_animals_table[animal_id]
-
-for animal_id in list(powerups_table.keys()):
-    del powerups_table[animal_id]
-
-
-powerups_table['super_fruits'] = Powerup(
-    slug='super_fruits',
-    name='Kaikki on superhedelmiä',
-    duration=45,
-    cooldown=60 * 5,
-    active=False,
-    available=True,
-    start_time=datetime.datetime.now() - datetime.timedelta(days=1),
-)
-powerups_table['sun'] = Powerup(
-    slug='sun',
-    name='Lisää hedelmiä',
-    duration=0,
-    cooldown=0,
-    active=False,
-    available=True,
-    start_time=datetime.datetime.now() - datetime.timedelta(days=1),
-)
-powerups_table['handcuffs'] = Powerup(
-    slug='handcuffs',
-    name='Käsiraudat',
-    duration=60,
-    cooldown=60 * 2,
-    active=False,
-    available=True,
-    start_time=datetime.datetime.now() - datetime.timedelta(days=1),
-)
-
-
-for pokemon_name, pokemon in pokemons_table.items():
-    front_default = os.path.join(data_folder, pokemon_name, 'animated', 'front_default.gif')
-    if not os.path.exists(front_default):
-        logger.info("Skipping pokemon %s, no images", pokemon_name)
-        continue
-    
-    pokemon_number = pokemon['api_url'].split('/')[-2]
-
-    index = int(pokemon_number)
-    index_hash = int(hashlib.sha256(str(index).encode('utf-8')).hexdigest(), 16) % len(FRUIT_SLUGS)
-
-    animal = Animal(
-        slug=pokemon_name,
-        name=pokemon_name.capitalize(),
-        fruit_slug=FRUIT_SLUGS[index_hash],
-        fruit=0,
-        eating_speed=15,
-        experience=0,
-        level=0,
-        start_eating=datetime.datetime.now(),
-        last_source=None,
-        evolution=pokemon.get('evolution'),
-        location=None,
-        target=None,
-        target_time=None,
-        filled=False,
-        index=index,
-    )
-    animals_table[animal.id] = animal
-    logger.info("Loaded pokemon %s, evolution: %s", pokemon_name, pokemon.get('evolution'))
-
-pokemon_roots = {}
-def get_pokemon_root(slug):
-    if slug in pokemon_roots:
-        return pokemon_roots[slug]
-    return slug
-
-
-for pokemon_name, pokemon in pokemons_table.items():
-    if 'evolution' not in pokemon:
-        continue
-
-    for animal in animals_table.values():
-        if animal.slug == pokemon['evolution']:
-            next_evolution = animal
-            break
-    next_evolution.spawns = False
-    next_evolution.egg = False
-    animals_table[next_evolution.id] = next_evolution
-
-    if pokemon_name not in pokemon_roots:
-        pokemon_roots[next_evolution.slug] = pokemon_name
-    else:
-        pokemon_roots[next_evolution.slug] = pokemon_roots[pokemon_name]
-
-    for animal in animals_table.values():
-        if animal.slug == pokemon_name:
-            animal.evolution_id = next_evolution.id
-            animals_table[animal.id] = animal
-            break
-    else:
-        raise Exception("Could not find pokemon %s", pokemon_name)
-
-
-
-animals_table[-1] = Animal(
-    id=-1,
-    slug="burglar",
-    name="Varas",
-    fruit_slug='handcuffs',
-    fruit=0,
-    eating_speed=15,
-    experience=0,
-    level=0,
-    start_eating=datetime.datetime.now(),
-    last_source=None,
-    evolution=None,
-    location=None,
-    target=None,
-    target_time=None,
-    filled=False,
-    egg=False,
-)
-logger.info("Added burglar")
-BURGLAR_JAIL_TIME = 60 * 2
-
-
-
-FRUIT_TIMEOUT = 60
-ANIMAL_TIMEOUT = 7 * 60
-ANIMAL_CLOSE_TIMEOUT = 30
-
-def _init_row(barcode=''):
-    return Point(**{
-        'barcode': barcode,
-        'x': 0.1,
-        'y': 0.1,
-        'name': None,
-        'fruit': None,
-        'fruit_death': datetime.datetime.now() - datetime.timedelta(days=1),
-        "super_fruit": False,
-        'fruit_timeout': None,
-    })
-
-
-def table_setter(table, table_key, key, value):
-    table_row = table[table_key]
-    table_row[key] = value
-    table[table_key] = table_row
-
-
 INITIAL_CODES = [
     'http://koodi-1',
     'http://koodi-2',
@@ -269,124 +110,298 @@ INITIAL_CODES = [
 ]
 HOME_CODE = 'http://koodi-6'
 ANIMAL_SKIP_CODES = [HOME_CODE]
-for initial_code in INITIAL_CODES:
-    if initial_code not in codes_table:
-        codes_table[initial_code] = _init_row(initial_code)
 
-for code in codes_table:
-    if code not in INITIAL_CODES:
-        del codes_table[code]
+def init_data():
+    main_table['last_tick'] = datetime.datetime.now()
 
+    # Load pokemons
+    for animal_id in list(animals_table.keys()):
+        del animals_table[animal_id]
 
-point_names = {
-    'http://koodi-1': 'Eteisessä',
-    'http://koodi-2': 'Sohvan takana',
-    'http://koodi-3': 'Savupiipussa',
-    'http://koodi-4': 'Makuuhuoneessa',
-    'http://koodi-5': 'Jääkaapissa',
-    'http://koodi-6': 'Telkkarin Luona',
-    'http://koodi-7': 'Kuivausrummussa',
-    'http://koodi-8': 'Einarin Huoneessa',
-    'http://koodi-9': 'Valtterin Huoneessa',
-}
+    for animal_id in list(active_animals_table.keys()):
+        del active_animals_table[animal_id]
 
+    for animal_id in list(spawned_animals_table.keys()):
+        del spawned_animals_table[animal_id]
+
+    for animal_id in list(shelved_animals_table.keys()):
+        del shelved_animals_table[animal_id]
+
+    for animal_id in list(powerups_table.keys()):
+        del powerups_table[animal_id]
 
 
-play_area_limits = [
-    set([
-        'http://koodi-2',
-        'http://koodi-5',
-        # Lisäsiipi
-        'http://koodi-6',
-        'http://koodi-7',
-        'http://koodi-8',
-        'http://koodi-3',
-    ]),
-    set([
-        # Lisäsiipi
-        'http://koodi-6',
-        'http://koodi-7',
-        'http://koodi-8',
-        'http://koodi-3',
-    ]),
-]
-
-main_table['PLAY_AREA'] = 30
-main_table['ACTIVE_PLAYING_START'] = None
-main_table['ACTIVE_PLAYING_CURRENT'] = None
-
-def get_not_play_area_codes():
-    if main_table['PLAY_AREA'] > len(play_area_limits) - 1:
-        return []
-    return [code for code in codes_table.keys() if code in play_area_limits[main_table['PLAY_AREA']]]
-
-
-def get_point(barcode):
-    point = codes_table.get(barcode)
-    if not point:
-        point = maps_table.get(barcode)
-    return point
+    powerups_table['super_fruits'] = Powerup(
+        slug='super_fruits',
+        name='Kaikki on superhedelmiä',
+        duration=45,
+        cooldown=60 * 5,
+        active=False,
+        available=True,
+        start_time=datetime.datetime.now() - datetime.timedelta(days=1),
+    )
+    powerups_table['sun'] = Powerup(
+        slug='sun',
+        name='Lisää hedelmiä',
+        duration=0,
+        cooldown=0,
+        active=False,
+        available=True,
+        start_time=datetime.datetime.now() - datetime.timedelta(days=1),
+    )
+    powerups_table['handcuffs'] = Powerup(
+        slug='handcuffs',
+        name='Käsiraudat',
+        duration=60,
+        cooldown=60 * 2,
+        active=False,
+        available=True,
+        start_time=datetime.datetime.now() - datetime.timedelta(days=1),
+    )
 
 
-for key in list(codes_table.keys()):
-    if 'map-' in key:
-        del codes_table[key]
-
-
-for key in list(maps_table.keys()):
-    if 'map-' not in key:
-        del maps_table[key]
-
-
-for key, point in codes_table.items():
-    point.fruit_death = datetime.datetime.now() - datetime.timedelta(days=1)
-    point.fruit_timeout = datetime.datetime.now()
-
-    point.connections = getattr(point, 'connections', [])
-    point.gift = False
-    missing_connections = set()
-    for connection in point.connections:
-        if connection == key:
+    for pokemon_name, pokemon in pokemons_table.items():
+        front_default = os.path.join(data_folder, pokemon_name, 'animated', 'front_default.gif')
+        if not os.path.exists(front_default):
+            logger.info("Skipping pokemon %s, no images", pokemon_name)
             continue
-        connected_point = get_point(connection)
-        if not connected_point:
-            missing_connections.add(connection)
+        
+        pokemon_number = pokemon['api_url'].split('/')[-2]
+
+        index = int(pokemon_number)
+        index_hash = int(hashlib.sha256(str(index).encode('utf-8')).hexdigest(), 16) % len(FRUIT_SLUGS)
+
+        animal = Animal(
+            slug=pokemon_name,
+            name=pokemon_name.capitalize(),
+            fruit_slug=FRUIT_SLUGS[index_hash],
+            fruit=0,
+            eating_speed=15,
+            experience=0,
+            level=0,
+            start_eating=datetime.datetime.now(),
+            last_source=None,
+            evolution=pokemon.get('evolution'),
+            location=None,
+            target=None,
+            target_time=None,
+            filled=False,
+            index=index,
+        )
+        animals_table[animal.id] = animal
+        logger.info("Loaded pokemon %s, evolution: %s", pokemon_name, pokemon.get('evolution'))
+
+    pokemon_roots = {}
+    def get_pokemon_root(slug):
+        if slug in pokemon_roots:
+            return pokemon_roots[slug]
+        return slug
+
+
+    for pokemon_name, pokemon in pokemons_table.items():
+        if 'evolution' not in pokemon:
             continue
-        if key not in connected_point.connections:
-            connected_point.connections.append(key)
-            if connection in codes_table:
-                codes_table[connection] = connected_point
-            else:
-                maps_table[connection] = connected_point
-    for connection in missing_connections:
-        point.connections.remove(connection)
-    codes_table[key] = point
+
+        for animal in animals_table.values():
+            if animal.slug == pokemon['evolution']:
+                next_evolution = animal
+                break
+        next_evolution.spawns = False
+        next_evolution.egg = False
+        animals_table[next_evolution.id] = next_evolution
+
+        if pokemon_name not in pokemon_roots:
+            pokemon_roots[next_evolution.slug] = pokemon_name
+        else:
+            pokemon_roots[next_evolution.slug] = pokemon_roots[pokemon_name]
+
+        for animal in animals_table.values():
+            if animal.slug == pokemon_name:
+                animal.evolution_id = next_evolution.id
+                animals_table[animal.id] = animal
+                break
+        else:
+            raise Exception("Could not find pokemon %s", pokemon_name)
 
 
-for key, point in maps_table.items():
-    point.connections = getattr(point, 'connections', [])
-    missing_connections = set()
-    for connection in point.connections:
-        if connection == key:
+
+    animals_table[-1] = Animal(
+        id=-1,
+        slug="burglar",
+        name="Varas",
+        fruit_slug='handcuffs',
+        fruit=0,
+        eating_speed=15,
+        experience=0,
+        level=0,
+        start_eating=datetime.datetime.now(),
+        last_source=None,
+        evolution=None,
+        location=None,
+        target=None,
+        target_time=None,
+        filled=False,
+        egg=False,
+    )
+    logger.info("Added burglar")
+    BURGLAR_JAIL_TIME = 60 * 2
+
+
+
+    FRUIT_TIMEOUT = 60
+    ANIMAL_TIMEOUT = 7 * 60
+    ANIMAL_CLOSE_TIMEOUT = 30
+
+    def _init_row(barcode=''):
+        return Point(**{
+            'barcode': barcode,
+            'x': 0.1,
+            'y': 0.1,
+            'name': None,
+            'fruit': None,
+            'fruit_death': datetime.datetime.now() - datetime.timedelta(days=1),
+            "super_fruit": False,
+            'fruit_timeout': None,
+        })
+
+
+    def table_setter(table, table_key, key, value):
+        table_row = table[table_key]
+        table_row[key] = value
+        table[table_key] = table_row
+
+
+    for initial_code in INITIAL_CODES:
+        if initial_code not in codes_table:
+            codes_table[initial_code] = _init_row(initial_code)
+
+    for code in codes_table:
+        if code not in INITIAL_CODES:
+            del codes_table[code]
+
+
+    point_names = {
+        'http://koodi-1': 'Eteisessä',
+        'http://koodi-2': 'Sohvan takana',
+        'http://koodi-3': 'Savupiipussa',
+        'http://koodi-4': 'Makuuhuoneessa',
+        'http://koodi-5': 'Jääkaapissa',
+        'http://koodi-6': 'Telkkarin Luona',
+        'http://koodi-7': 'Kuivausrummussa',
+        'http://koodi-8': 'Einarin Huoneessa',
+        'http://koodi-9': 'Valtterin Huoneessa',
+    }
+
+
+
+    play_area_limits = [
+        set([
+            'http://koodi-2',
+            'http://koodi-5',
+            # Lisäsiipi
+            'http://koodi-6',
+            'http://koodi-7',
+            'http://koodi-8',
+            'http://koodi-3',
+        ]),
+        set([
+            # Lisäsiipi
+            'http://koodi-6',
+            'http://koodi-7',
+            'http://koodi-8',
+            'http://koodi-3',
+        ]),
+    ]
+
+    main_table['PLAY_AREA'] = 30
+    main_table['ACTIVE_PLAYING_START'] = None
+    main_table['ACTIVE_PLAYING_CURRENT'] = None
+
+    def get_not_play_area_codes():
+        if main_table['PLAY_AREA'] > len(play_area_limits) - 1:
+            return []
+        return [code for code in codes_table.keys() if code in play_area_limits[main_table['PLAY_AREA']]]
+
+
+    def get_point(barcode):
+        point = codes_table.get(barcode)
+        if not point:
+            point = maps_table.get(barcode)
+        return point
+
+
+    for key in list(codes_table.keys()):
+        if 'map-' in key:
+            del codes_table[key]
+
+
+    for key in list(maps_table.keys()):
+        if 'map-' not in key:
+            del maps_table[key]
+
+
+    for key, point in codes_table.items():
+        point.fruit_death = datetime.datetime.now() - datetime.timedelta(days=1)
+        point.fruit_timeout = datetime.datetime.now()
+
+        point.connections = getattr(point, 'connections', [])
+        point.gift = False
+        missing_connections = set()
+        for connection in point.connections:
+            if connection == key:
+                continue
+            connected_point = get_point(connection)
+            if not connected_point:
+                missing_connections.add(connection)
+                continue
+            if key not in connected_point.connections:
+                connected_point.connections.append(key)
+                if connection in codes_table:
+                    codes_table[connection] = connected_point
+                else:
+                    maps_table[connection] = connected_point
+        for connection in missing_connections:
+            point.connections.remove(connection)
+        codes_table[key] = point
+
+
+    for key, point in maps_table.items():
+        point.connections = getattr(point, 'connections', [])
+        missing_connections = set()
+        for connection in point.connections:
+            if connection == key:
+                continue
+            connected_point = get_point(connection)
+            if not connected_point:
+                missing_connections.add(connection)
+                continue
+            if key not in connected_point.connections:
+                connected_point.connections.append(key)
+                if connection in codes_table:
+                    codes_table[connection] = connected_point
+                else:
+                    maps_table[connection] = connected_point
+
+        for connection in missing_connections:
+            point.connections.remove(connection)
+        maps_table[key] = point
+
+
+    logger.info("codes_table: %s", len(codes_table))
+    logger.info("maps_table: %s", len(maps_table))
+
+
+    for point in codes_table.values():
+        if point.barcode in points_by_distance_table:
             continue
-        connected_point = get_point(connection)
-        if not connected_point:
-            missing_connections.add(connection)
-            continue
-        if key not in connected_point.connections:
-            connected_point.connections.append(key)
-            if connection in codes_table:
-                codes_table[connection] = connected_point
-            else:
-                maps_table[connection] = connected_point
+        logger.info("Sorting points...")
+        points_by_distance_table[point.barcode] = sorted(
+            [__point.barcode for __point in codes_table.values() if __point.barcode != point.barcode],
+            key=lambda _point: find_next_in_path(point.barcode, _point)[1]
+        )
+        logger.info("DONE Sorting points...")
 
-    for connection in missing_connections:
-        point.connections.remove(connection)
-    maps_table[key] = point
-
-
-logger.info("codes_table: %s", len(codes_table))
-logger.info("maps_table: %s", len(maps_table))
+    logger.info("points_by_distance_table: %s", len(points_by_distance_table))
 
 
 @app.route("/")
@@ -693,19 +708,6 @@ def find_next_in_path(barcode1, barcode2):
     if len(_random_connetions) == 0:
         return barcode2, barcode_distance(barcode1, barcode2)
     return random.choice(_random_connetions), 1
-
-
-for point in codes_table.values():
-    if point.barcode in points_by_distance_table:
-        continue
-    logger.info("Sorting points...")
-    points_by_distance_table[point.barcode] = sorted(
-        [__point.barcode for __point in codes_table.values() if __point.barcode != point.barcode],
-        key=lambda _point: find_next_in_path(point.barcode, _point)[1]
-    )
-    logger.info("DONE Sorting points...")
-
-logger.info("points_by_distance_table: %s", len(points_by_distance_table))
 
 def animal_new_target(animal, old_location=None):
     if animal.slug == "burglar" or animal.location in codes_table:
