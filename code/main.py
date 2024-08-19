@@ -266,9 +266,6 @@ INITIAL_CODES = [
     'http://koodi-7',
     'http://koodi-8',
     'http://koodi-9',
-    'http://koodi-10',
-    'http://koodi-11',
-    'http://koodi-12',
 ]
 HOME_CODE = 'http://koodi-6'
 ANIMAL_SKIP_CODES = [HOME_CODE]
@@ -276,22 +273,21 @@ for initial_code in INITIAL_CODES:
     if initial_code not in codes_table:
         codes_table[initial_code] = _init_row(initial_code)
 
-
+for code in codes_table:
+    if code not in INITIAL_CODES:
+        del codes_table[code]
 
 
 point_names = {
     'http://koodi-1': 'Eteisessä',
     'http://koodi-2': 'Sohvan takana',
     'http://koodi-3': 'Savupiipussa',
-    'http://koodi-4': 'Kodinhoitohuoneessa',
+    'http://koodi-4': 'Makuuhuoneessa',
     'http://koodi-5': 'Jääkaapissa',
     'http://koodi-6': 'Telkkarin Luona',
     'http://koodi-7': 'Kuivausrummussa',
     'http://koodi-8': 'Einarin Huoneessa',
-    'http://koodi-9': 'Saunassa',
-    'http://koodi-10': 'Makuuhuoneessa',
-    'http://koodi-11': 'Valtterin huoneessa',
-    'http://koodi-12': 'Vaatehuoneessa',
+    'http://koodi-9': 'Valtterin Huoneessa',
 }
 
 
