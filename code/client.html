@@ -150,7 +150,6 @@
         setTimeout(() => {
           lastDetId = null
         }, 3000)
-        playMusic();
         melody([[440, 100], [554.37, 100], [659.25, 100]])
         axios.post('/api/mark', {barcode: content}).then(function (response) {
           if (window.speechSynthesis) {
