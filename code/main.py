@@ -178,6 +178,12 @@ def get_not_play_area_codes():
         return []
     return [code for code in codes_table.keys() if code in play_area_limits[main_table['PLAY_AREA']]]
 
+def get_point(barcode):
+    point = codes_table.get(barcode)
+    if not point:
+        point = maps_table.get(barcode)
+    return point
+
 def init_data():
     main_table['last_tick'] = datetime.datetime.now()
 
@@ -327,13 +333,6 @@ def init_data():
     main_table['PLAY_AREA'] = 30
     main_table['ACTIVE_PLAYING_START'] = None
     main_table['ACTIVE_PLAYING_CURRENT'] = None
-
-    def get_point(barcode):
-        point = codes_table.get(barcode)
-        if not point:
-            point = maps_table.get(barcode)
-        return point
-
 
     for key in list(codes_table.keys()):
         if 'map-' in key:
